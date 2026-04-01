@@ -1,5 +1,6 @@
 package com.travelai.domain.ai;
 
+import com.travelai.domain.ai.agents.ActivityAgent;
 import com.travelai.domain.ai.agents.DayRefinerAgent;
 import com.travelai.domain.ai.agents.ItineraryAgent;
 import com.travelai.domain.auth.User;
@@ -35,11 +36,16 @@ public class AiController {
     private final TripService tripService;
     private final ItineraryAgent itineraryAgent;
     private final DayRefinerAgent dayRefinerAgent;
+    private final ActivityAgent activityAgent;
 
-    // ── DTO ──────────────────────────────────────────────────────────────────
+    // ── DTOs ─────────────────────────────────────────────────────────────────
 
     public record RefineRequest(
             @NotBlank @Size(max = 1000) String prompt
+    ) {}
+
+    public record ActivitySuggestRequest(
+            @NotBlank @Size(max = 50) String category
     ) {}
 
     // ── Endpoints ────────────────────────────────────────────────────────────
@@ -107,6 +113,42 @@ public class AiController {
                                 .build()))
                 .onErrorResume(e -> {
                     log.error("AiController: error en refinament del dia {} per trip {}: {}", day, id, e.getMessage());
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data("{\"message\":\"" + escapeJson(e.getMessage()) + "\"}")
+                            .build());
+                });
+    }
+
+    /**
+     * Suggereix activitats d'una categoria per a un dia específic del viatge.
+     * El client rep chunks JSON en format SSE (streaming).
+     */
+    @PostMapping(value = "/{id}/days/{day}/activities/suggest", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> suggestActivities(
+            @PathVariable UUID id,
+            @PathVariable int day,
+            @Valid @RequestBody ActivitySuggestRequest request,
+            @AuthenticationPrincipal User user) {
+
+        Trip trip = tripService.findActiveOrThrow(id);
+        assertOwner(trip, user);
+
+        log.info("AiController: suggerint activitats '{}' per dia {} del trip {} (usuari: {})",
+                request.category(), day, id, user.getUsername());
+
+        return activityAgent.suggest(trip, day, request.category())
+                .map(chunk -> ServerSentEvent.<String>builder()
+                        .event("chunk")
+                        .data(chunk)
+                        .build())
+                .concatWith(Flux.just(
+                        ServerSentEvent.<String>builder()
+                                .event("complete")
+                                .data("{\"status\":\"done\",\"day\":" + day + ",\"category\":\"" + request.category() + "\"}")
+                                .build()))
+                .onErrorResume(e -> {
+                    log.error("AiController: error suggerint activitats per trip {} dia {}: {}", id, day, e.getMessage());
                     return Flux.just(ServerSentEvent.<String>builder()
                             .event("error")
                             .data("{\"message\":\"" + escapeJson(e.getMessage()) + "\"}")

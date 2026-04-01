@@ -25,6 +25,10 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
 
     Page<Trip> findByOwnerAndDeletedAtNull(User owner, Pageable pageable);
 
+    Page<Trip> findByOwnerAndVisibilityAndDeletedAtNull(User owner, Visibility visibility, Pageable pageable);
+
+    long countByOwnerAndDeletedAtNull(User owner);
+
     /**
      * Feed personalitzat: trips públics ordenats per rating DESC, createdAt DESC.
      * Exclou els viatges del propi usuari autenticat.
