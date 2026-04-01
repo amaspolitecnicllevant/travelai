@@ -29,7 +29,10 @@ const menuOpen = ref(false)
             Nou viatge
           </router-link>
           <router-link to="/profile" class="text-gray-600 hover:text-indigo-600 text-sm font-medium">
-            Perfil
+            Mi perfil
+          </router-link>
+          <router-link to="/my-data" class="text-gray-600 hover:text-indigo-600 text-sm font-medium">
+            Mis datos
           </router-link>
           <button @click="logout" class="text-sm text-red-500 hover:text-red-700 font-medium">
             Sortir
@@ -64,7 +67,8 @@ const menuOpen = ref(false)
       <template v-if="auth.isLoggedIn">
         <router-link to="/feed"      @click="menuOpen=false" class="text-gray-700 text-sm">Feed</router-link>
         <router-link to="/trips/new" @click="menuOpen=false" class="text-gray-700 text-sm">Nou viatge</router-link>
-        <router-link to="/profile"   @click="menuOpen=false" class="text-gray-700 text-sm">Perfil</router-link>
+        <router-link to="/profile"   @click="menuOpen=false" class="text-gray-700 text-sm">Mi perfil</router-link>
+        <router-link to="/my-data"  @click="menuOpen=false" class="text-gray-700 text-sm">Mis datos</router-link>
         <button @click="logout(); menuOpen=false" class="text-left text-red-500 text-sm">Sortir</button>
       </template>
       <template v-else>
