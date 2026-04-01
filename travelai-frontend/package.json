@@ -13,7 +13,9 @@
     "vue-router": "^4.3.0",
     "pinia": "^2.2.0",
     "@vueuse/core": "^11.0.0",
-    "axios": "^1.7.0"
+    "axios": "^1.7.0",
+    "@stomp/stompjs": "^7.0.0",
+    "sockjs-client": "^1.6.1"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.1.0",

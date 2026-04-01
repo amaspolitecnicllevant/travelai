@@ -4,6 +4,7 @@ import { useAuthStore } from '@/stores/auth'
 const routes = [
   { path: '/',                   name: 'home',           component: () => import('@/views/HomeView.vue') },
   { path: '/explore',            name: 'explore',        component: () => import('@/views/ExploreView.vue') },
+  { path: '/search',             name: 'search',         component: () => import('@/views/SearchView.vue') },
   { path: '/trips/:id',          name: 'trip-detail',    component: () => import('@/views/trips/TripDetailView.vue') },
   { path: '/profile/:username',  name: 'public-profile', component: () => import('@/views/profile/PublicProfileView.vue') },
   { path: '/login',              name: 'login',          component: () => import('@/views/auth/LoginView.vue'),    meta: { guestOnly: true } },

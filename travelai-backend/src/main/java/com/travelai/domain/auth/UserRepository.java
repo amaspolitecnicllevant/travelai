@@ -1,5 +1,7 @@
 package com.travelai.domain.auth;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -26,4 +28,15 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     @Modifying
     @Query("UPDATE User u SET u.deletedAt = :now WHERE u.id = :id")
     void softDeleteById(@Param("id") UUID id, @Param("now") Instant now);
+
+    /**
+     * Cerca d'usuaris actius per username o nom (ILIKE).
+     */
+    @Query("""
+        SELECT u FROM User u
+        WHERE u.deletedAt IS NULL
+          AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(u.name) LIKE LOWER(CONCAT('%', :q, '%')))
+        """)
+    Page<User> search(@Param("q") String q, Pageable pageable);
 }

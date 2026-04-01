@@ -6,8 +6,10 @@ import { legalApi } from '@/api/legal'
 import { tripsApi } from '@/api/trips'
 import TripCard from '@/components/trip/TripCard.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { useToast } from '@/composables/useToast'
 
-const auth = useAuthStore()
+const auth  = useAuthStore()
+const toast = useToast()
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const activeTab = ref('trips')
@@ -116,6 +118,47 @@ async function confirmDeleteRequest() {
   }
 }
 
+// ── Avatar upload ─────────────────────────────────────────────────────────────
+const avatarFileInput  = ref(null)
+const avatarPreview    = ref(auth.user?.avatarUrl || null)
+const avatarFile       = ref(null)
+const avatarUploading  = ref(false)
+const avatarProgress   = ref(0)
+
+function onAvatarClick() {
+  avatarFileInput.value?.click()
+}
+
+function onAvatarFileChange(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  avatarFile.value = file
+  avatarPreview.value = URL.createObjectURL(file)
+}
+
+async function saveAvatar() {
+  if (!avatarFile.value) return
+  avatarUploading.value = true
+  avatarProgress.value  = 0
+  try {
+    const formData = new FormData()
+    formData.append('avatar', avatarFile.value)
+    const { data } = await usersApi.uploadAvatar(formData)
+    if (data?.avatarUrl) {
+      auth.user = { ...auth.user, avatarUrl: data.avatarUrl }
+      localStorage.setItem('user', JSON.stringify(auth.user))
+      avatarPreview.value = data.avatarUrl
+    }
+    avatarProgress.value = 100
+    toast.success('Avatar actualitzat correctament')
+    avatarFile.value = null
+  } catch (e) {
+    toast.error(e.response?.data?.message || 'Error pujant l\'avatar')
+  } finally {
+    avatarUploading.value = false
+  }
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 onMounted(fetchTrips)
 </script>
@@ -126,8 +169,10 @@ onMounted(fetchTrips)
     <div class="bg-white border-b border-gray-200">
       <div class="max-w-5xl mx-auto px-4 py-10 flex items-center gap-6">
         <!-- Avatar -->
-        <div class="h-20 w-20 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0">
-          <span class="text-2xl font-bold text-white">{{ initials }}</span>
+        <div class="h-20 w-20 rounded-full bg-indigo-600 flex items-center justify-center flex-shrink-0 overflow-hidden">
+          <img v-if="auth.user?.avatarUrl" :src="auth.user.avatarUrl" :alt="auth.user.name"
+               class="h-20 w-20 rounded-full object-cover" />
+          <span v-else class="text-2xl font-bold text-white">{{ initials }}</span>
         </div>
 
         <div>
@@ -187,6 +232,67 @@ onMounted(fetchTrips)
       <!-- TAB: Ajustes -->
       <div v-if="activeTab === 'settings'" class="max-w-lg">
         <h2 class="text-lg font-semibold text-gray-900 mb-6">Ajustes del perfil</h2>
+
+        <!-- Avatar upload -->
+        <div class="mb-8">
+          <label class="block text-sm font-medium text-gray-700 mb-3">Foto de perfil</label>
+          <div class="flex items-center gap-5">
+            <!-- Clickable avatar circle -->
+            <button
+              type="button"
+              @click="onAvatarClick"
+              class="relative h-20 w-20 rounded-full bg-indigo-600 flex items-center justify-center overflow-hidden flex-shrink-0 hover:opacity-90 transition-opacity focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 group"
+              title="Canviar avatar"
+            >
+              <img v-if="avatarPreview" :src="avatarPreview" alt="Avatar preview"
+                   class="h-20 w-20 rounded-full object-cover" />
+              <span v-else class="text-2xl font-bold text-white">{{ initials }}</span>
+              <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+                <svg class="h-6 w-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                </svg>
+              </div>
+            </button>
+
+            <div class="flex flex-col gap-2">
+              <p class="text-sm text-gray-500">Fes clic per seleccionar una imatge (JPG, PNG, WebP)</p>
+              <button
+                v-if="avatarFile"
+                type="button"
+                @click="saveAvatar"
+                :disabled="avatarUploading"
+                class="btn-primary text-sm"
+              >
+                {{ avatarUploading ? 'Pujant...' : 'Guardar avatar' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Hidden file input -->
+          <input
+            ref="avatarFileInput"
+            type="file"
+            accept="image/*"
+            class="hidden"
+            @change="onAvatarFileChange"
+          />
+
+          <!-- Progress bar -->
+          <div v-if="avatarUploading" class="mt-3">
+            <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+              <div
+                class="bg-indigo-600 h-1.5 rounded-full transition-all duration-300"
+                :style="{ width: avatarProgress + '%' }"
+              ></div>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Pujant avatar...</p>
+          </div>
+        </div>
+
+        <hr class="border-gray-200 mb-6" />
 
         <div v-if="settingsError" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-red-700 text-sm">
           {{ settingsError }}
