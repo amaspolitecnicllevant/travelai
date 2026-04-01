@@ -38,11 +38,12 @@ export function useAiStream() {
         const { done, value } = await reader.read()
         if (done) break
         pending += dec.decode(value, { stream: true })
-        const lines = pending.split('\n'); pending = lines.pop()
-        for (const line of lines) {
-          if (!line.startsWith('data:')) continue
-          const raw = line.slice(5).trim()
-          if (raw) _handle(raw)
+        // SSE messages are separated by blank lines (\n\n)
+        const messages = pending.split('\n\n')
+        pending = messages.pop() // keep incomplete last chunk
+        for (const message of messages) {
+          if (!message.trim()) continue
+          _handleSseMessage(message)
         }
       }
     } catch (e) {
@@ -51,15 +52,36 @@ export function useAiStream() {
     return days.value
   }
 
-  function _handle(raw) {
+  // Parse a full SSE message block (may contain event: and data: lines)
+  function _handleSseMessage(message) {
+    let eventType = null
+    let dataLines = []
+    for (const line of message.split('\n')) {
+      if (line.startsWith('event:')) {
+        eventType = line.slice(6).trim()
+      } else if (line.startsWith('data:')) {
+        dataLines.push(line.slice(5).trim())
+      }
+    }
+    const raw = dataLines.join('\n')
+    if (!raw) return
+    _handle(raw, eventType)
+  }
+
+  function _handle(raw, sseEvent = null) {
     try {
       const e = JSON.parse(raw)
-      if (e.type === 'start')              progress.value = e.message || 'Generant...'
-      else if (e.type === 'chunk')       { rawBuffer.value += e.content || ''; progress.value = 'Escrivint...' }
-      else if (e.type === 'day_complete' && e.day) { days.value = [...days.value, e.day]; progress.value = `Dia ${e.dayNumber} llest` }
-      else if (e.type === 'complete')      progress.value = 'Itinerari completat'
-      else if (e.type === 'error')         error.value = e.message
-    } catch { /* chunk parcial */ }
+      // Resolve event type: prefer SSE event field, fall back to JSON type field
+      const type = sseEvent || e.type
+      if (type === 'start')              progress.value = e.message || 'Generant...'
+      else if (type === 'chunk')       { rawBuffer.value += e.content || ''; progress.value = 'Escrivint...' }
+      else if (type === 'day_complete' && e.day) { days.value = [...days.value, e.day]; progress.value = `Dia ${e.dayNumber} llest` }
+      else if (type === 'complete')      progress.value = 'Itinerari completat'
+      else if (type === 'error')         error.value = e.message
+    } catch {
+      // Plain-text chunk (non-JSON): treat as raw content appended to buffer
+      if (sseEvent === 'chunk') rawBuffer.value += raw
+    }
   }
 
   return { streaming: readonly(streaming), progress: readonly(progress),

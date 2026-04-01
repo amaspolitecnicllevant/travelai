@@ -4,6 +4,7 @@ import com.travelai.domain.auth.User;
 import com.travelai.domain.trip.dto.TripResponse;
 import com.travelai.domain.user.dto.UpdateProfileRequest;
 import com.travelai.domain.user.dto.UserProfileResponse;
+import com.travelai.domain.user.dto.UserStatsResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -68,6 +69,12 @@ public class UserController {
             @PathVariable String username,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(userService.getPublicTrips(username, pageable));
+    }
+
+    @GetMapping("/{username}/stats")
+    public ResponseEntity<UserStatsResponse> getUserStats(
+            @PathVariable String username) {
+        return ResponseEntity.ok(userService.getUserStats(username));
     }
 
     // ── Follows ──────────────────────────────────────────────────────────────

@@ -8,8 +8,12 @@ import com.travelai.domain.trip.TripRepository;
 import com.travelai.domain.trip.Visibility;
 import com.travelai.domain.trip.dto.TripResponse;
 import com.travelai.domain.trip.TripService;
+import com.travelai.domain.legal.DataDeletionRequest;
+import com.travelai.domain.legal.DataDeletionRequestRepository;
+import com.travelai.domain.trip.RatingRepository;
 import com.travelai.domain.user.dto.UpdateProfileRequest;
 import com.travelai.domain.user.dto.UserProfileResponse;
+import com.travelai.domain.user.dto.UserStatsResponse;
 import com.travelai.shared.exception.ResourceNotFoundException;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
@@ -34,6 +38,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final TripRepository tripRepository;
+    private final RatingRepository ratingRepository;
+    private final DataDeletionRequestRepository deletionRequestRepository;
     private final TripService tripService;
     private final NotificationService notificationService;
     private final MinioClient minioClient;
@@ -64,13 +70,18 @@ public class UserService {
     }
 
     /**
-     * Retorna el perfil propi de l'usuari autenticat (inclou email).
+     * Retorna el perfil propi de l'usuari autenticat (inclou email i deleteScheduledAt).
      */
     @Transactional(readOnly = true)
     public UserProfileResponse getMyProfile(User user) {
         long followers = followRepository.countFollowers(user.getId());
         long following = followRepository.countFollowing(user.getId());
         long trips     = tripRepository.countByOwnerAndDeletedAtNull(user);
+
+        java.time.Instant deleteScheduledAt = deletionRequestRepository
+                .findByUserIdAndStatus(user.getId(), DataDeletionRequest.DeletionStatus.PENDING)
+                .map(DataDeletionRequest::getScheduledPurgeAt)
+                .orElse(null);
 
         return new UserProfileResponse(
                 user.getId(),
@@ -83,7 +94,8 @@ public class UserService {
                 following,
                 trips,
                 false,
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                deleteScheduledAt
         );
     }
 
@@ -107,6 +119,20 @@ public class UserService {
         User user = findActiveByUsernameOrThrow(username);
         return tripRepository.findByOwnerAndVisibilityAndDeletedAtNull(user, Visibility.PUBLIC, pageable)
                 .map(tripService::toResponse);
+    }
+
+    /**
+     * Retorna les estadístiques agregades d'un usuari per username.
+     */
+    @Transactional(readOnly = true)
+    public UserStatsResponse getUserStats(String username) {
+        User user = findActiveByUsernameOrThrow(username);
+        long tripsCount    = tripRepository.countByOwnerAndDeletedAtNull(user);
+        double avgRating   = ratingRepository.averageScoreByOwnerId(user.getId())
+                .orElse(0.0);
+        long followersCount = followRepository.countFollowers(user.getId());
+        long followingCount = followRepository.countFollowing(user.getId());
+        return new UserStatsResponse(tripsCount, avgRating, followersCount, followingCount);
     }
 
     // ── Follows ──────────────────────────────────────────────────────────────
@@ -210,7 +236,8 @@ public class UserService {
                 following,
                 trips,
                 isFollowing,
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                null   // deleteScheduledAt no exposat en perfil públic (GDPR)
         );
     }
 }

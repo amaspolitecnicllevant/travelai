@@ -17,4 +17,8 @@ public interface RatingRepository extends JpaRepository<Rating, UUID> {
 
     @Query("SELECT AVG(r.score) FROM Rating r WHERE r.trip = :trip")
     Optional<Double> averageScoreByTrip(@Param("trip") Trip trip);
+
+    /** Average score across all public trips owned by a given user. */
+    @Query("SELECT AVG(r.score) FROM Rating r WHERE r.trip.owner.id = :ownerId AND r.trip.deletedAt IS NULL")
+    Optional<Double> averageScoreByOwnerId(@Param("ownerId") UUID ownerId);
 }
