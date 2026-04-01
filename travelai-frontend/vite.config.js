@@ -7,6 +7,10 @@ export default defineConfig({
   resolve: {
     alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) }
   },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,
