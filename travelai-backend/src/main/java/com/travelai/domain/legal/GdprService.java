@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.travelai.domain.auth.RefreshTokenRepository;
 import com.travelai.domain.auth.User;
 import com.travelai.domain.auth.UserRepository;
+import com.travelai.domain.legal.dto.ConsentRequest;
 import com.travelai.domain.legal.dto.UserDataExportDto;
 import com.travelai.domain.trip.*;
 import com.travelai.shared.exception.ResourceNotFoundException;
@@ -224,6 +225,18 @@ public class GdprService {
         } catch (IOException e) {
             throw new RuntimeException("Error serialitzant dades a JSON", e);
         }
+    }
+
+    @Transactional
+    public void saveConsent(UUID userId, ConsentRequest req, String ipAddress) {
+        ConsentLog log = ConsentLog.builder()
+                .userId(userId)
+                .consentType(req.type())
+                .consentVersion(req.version())
+                .accepted(req.accepted())
+                .ipAddress(ipAddress)
+                .build();
+        consentLogRepository.save(log);
     }
 
     private byte[] wrapInZip(String fileName, byte[] content) {

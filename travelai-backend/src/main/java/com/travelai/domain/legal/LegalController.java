@@ -1,8 +1,10 @@
 package com.travelai.domain.legal;
 
 import com.travelai.domain.auth.User;
+import com.travelai.domain.legal.dto.ConsentRequest;
 import com.travelai.domain.legal.dto.DeletionRequestResponse;
 import com.travelai.shared.exception.ResourceNotFoundException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
@@ -108,6 +110,15 @@ public class LegalController {
             ))
             .toList();
         return ResponseEntity.ok(history);
+    }
+
+    @PostMapping("/api/v1/users/me/consent")
+    public ResponseEntity<Void> saveConsent(
+            @RequestBody ConsentRequest req,
+            @AuthenticationPrincipal User user,
+            HttpServletRequest request) {
+        gdprService.saveConsent(user.getId(), req, request.getRemoteAddr());
+        return ResponseEntity.ok().build();
     }
 
     // ── helpers ────────────────────────────────────────────────────────────────
