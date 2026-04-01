@@ -126,9 +126,17 @@ public class TripService {
         return toResponse(tripRepository.save(copy));
     }
 
+    @Transactional(readOnly = true)
+    public Page<TripResponse> getFeed(User requester, Pageable pageable) {
+        if (requester != null) {
+            return tripRepository.findFeedExcludingOwner(requester.getId(), pageable).map(this::toResponse);
+        }
+        return tripRepository.findFeed(pageable).map(this::toResponse);
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
-    Trip findActiveOrThrow(UUID tripId) {
+    public Trip findActiveOrThrow(UUID tripId) {
         return tripRepository.findByIdAndDeletedAtNull(tripId)
             .orElseThrow(() -> new ResourceNotFoundException("TRIP_NOT_FOUND", "Viatge no trobat"));
     }

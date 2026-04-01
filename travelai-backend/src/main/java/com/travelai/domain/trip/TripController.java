@@ -40,6 +40,18 @@ public class TripController {
         return ResponseEntity.ok(tripService.getPublicTrips(pageable));
     }
 
+    /**
+     * Personalised feed — public trips sorted by rating DESC, date DESC.
+     * If authenticated, the current user's own trips are excluded.
+     * The requester may be null (anonymous access).
+     */
+    @GetMapping("/feed")
+    public ResponseEntity<Page<TripResponse>> getFeed(
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(tripService.getFeed(user, pageable));
+    }
+
     @GetMapping
     public ResponseEntity<Page<TripResponse>> getMyTrips(
             @PageableDefault(size = 20) Pageable pageable,
