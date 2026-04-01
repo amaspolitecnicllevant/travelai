@@ -2,6 +2,8 @@ package com.travelai.domain.user;
 
 import com.travelai.domain.auth.User;
 import com.travelai.domain.auth.UserRepository;
+import com.travelai.domain.notification.NotificationService;
+import com.travelai.domain.notification.NotificationType;
 import com.travelai.domain.trip.TripRepository;
 import com.travelai.domain.trip.Visibility;
 import com.travelai.domain.trip.dto.TripResponse;
@@ -9,13 +11,19 @@ import com.travelai.domain.trip.TripService;
 import com.travelai.domain.user.dto.UpdateProfileRequest;
 import com.travelai.domain.user.dto.UserProfileResponse;
 import com.travelai.shared.exception.ResourceNotFoundException;
+import io.minio.BucketExistsArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -27,6 +35,12 @@ public class UserService {
     private final FollowRepository followRepository;
     private final TripRepository tripRepository;
     private final TripService tripService;
+    private final NotificationService notificationService;
+    private final MinioClient minioClient;
+
+    private static final String AVATAR_BUCKET = "travelai-avatars";
+    private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
+    private static final List<String> ALLOWED_TYPES = List.of("image/jpeg", "image/png", "image/webp");
 
     // ── Perfils ──────────────────────────────────────────────────────────────
 
@@ -112,6 +126,8 @@ public class UserService {
                     .followingId(target.getId())
                     .build();
             followRepository.save(follow);
+            notificationService.notify(target.getId(), NotificationType.FOLLOW,
+                    follower.getUsername() + " ha començat a seguir-te");
             log.info("UserService: '{}' ara segueix '{}'", follower.getUsername(), targetUsername);
         }
     }
@@ -132,6 +148,40 @@ public class UserService {
     @Transactional(readOnly = true)
     public boolean isFollowing(UUID followerId, UUID followingId) {
         return followRepository.existsByFollowerIdAndFollowingId(followerId, followingId);
+    }
+
+    @Transactional
+    public String uploadAvatar(UUID userId, MultipartFile file) {
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new IllegalArgumentException("La imatge no pot superar els 5MB");
+        }
+        if (!ALLOWED_TYPES.contains(file.getContentType())) {
+            throw new IllegalArgumentException("Format no permès. Usa JPEG, PNG o WebP");
+        }
+        String ext = file.getOriginalFilename() != null && file.getOriginalFilename().contains(".")
+                ? file.getOriginalFilename().substring(file.getOriginalFilename().lastIndexOf('.'))
+                : ".jpg";
+        String objectName = userId + "/" + UUID.randomUUID() + ext;
+        try {
+            boolean exists = minioClient.bucketExists(BucketExistsArgs.builder().bucket(AVATAR_BUCKET).build());
+            if (!exists) {
+                minioClient.makeBucket(MakeBucketArgs.builder().bucket(AVATAR_BUCKET).build());
+            }
+            minioClient.putObject(PutObjectArgs.builder()
+                    .bucket(AVATAR_BUCKET)
+                    .object(objectName)
+                    .stream(file.getInputStream(), file.getSize(), -1)
+                    .contentType(file.getContentType())
+                    .build());
+        } catch (Exception e) {
+            throw new RuntimeException("Error pujant l'avatar: " + e.getMessage(), e);
+        }
+        String avatarUrl = "/api/v1/minio/" + AVATAR_BUCKET + "/" + objectName;
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "Usuari no trobat"));
+        user.setAvatarUrl(avatarUrl);
+        userRepository.save(user);
+        return avatarUrl;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────

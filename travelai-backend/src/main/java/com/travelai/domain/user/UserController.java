@@ -12,6 +12,7 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * UserController — endpoints de perfil d'usuari i sistema de follows.
@@ -85,5 +86,13 @@ public class UserController {
             @AuthenticationPrincipal User user) {
         userService.unfollow(user, username);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/avatar")
+    public ResponseEntity<String> uploadAvatar(
+            @RequestParam MultipartFile file,
+            @AuthenticationPrincipal User user) {
+        String url = userService.uploadAvatar(user.getId(), file);
+        return ResponseEntity.ok(url);
     }
 }
