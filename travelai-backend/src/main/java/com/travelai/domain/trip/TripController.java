@@ -40,6 +40,18 @@ public class TripController {
         return ResponseEntity.ok(tripService.getPublicTrips(pageable));
     }
 
+    /**
+     * Personalised feed — public trips sorted by rating DESC, date DESC.
+     * If authenticated, the current user's own trips are excluded.
+     * The requester may be null (anonymous access).
+     */
+    @GetMapping("/feed")
+    public ResponseEntity<Page<TripResponse>> getFeed(
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(tripService.getFeed(user, pageable));
+    }
+
     @GetMapping
     public ResponseEntity<Page<TripResponse>> getMyTrips(
             @PageableDefault(size = 20) Pageable pageable,
@@ -75,6 +87,30 @@ public class TripController {
             @RequestParam String destination,
             @PageableDefault(size = 20) Pageable pageable) {
         return ResponseEntity.ok(tripService.searchByDestination(destination, pageable));
+    }
+
+    // ── Trip lifecycle ───────────────────────────────────────────────────────
+
+    @PostMapping("/{id}/publish")
+    public ResponseEntity<TripResponse> publishTrip(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(tripService.publishTrip(id, user));
+    }
+
+    @PostMapping("/{id}/unpublish")
+    public ResponseEntity<TripResponse> unpublishTrip(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(tripService.unpublishTrip(id, user));
+    }
+
+    @PostMapping("/{id}/duplicate")
+    public ResponseEntity<TripResponse> duplicateTrip(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(tripService.duplicateTrip(id, user));
     }
 
     // ── Itinerary ────────────────────────────────────────────────────────────
