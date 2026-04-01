@@ -85,7 +85,8 @@ public class SearchController {
                 0L,     // following count — no carregat en cerca
                 0L,     // trips count — no carregat en cerca
                 false,  // isFollowing — no disponible en cerca anònima
-                user.getCreatedAt()
+                user.getCreatedAt(),
+                null    // deleteScheduledAt — no exposat en cerca pública (GDPR)
         );
     }
 }

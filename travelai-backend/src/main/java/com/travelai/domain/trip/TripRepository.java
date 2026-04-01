@@ -30,6 +30,20 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
     long countByOwnerAndDeletedAtNull(User owner);
 
     /**
+     * Cerca full-text en trips públics (title, destination, description).
+     */
+    @Query("""
+        SELECT t FROM Trip t
+        WHERE t.visibility = 'PUBLIC'
+          AND t.deletedAt IS NULL
+          AND (LOWER(t.title) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(t.destination) LIKE LOWER(CONCAT('%', :q, '%'))
+            OR LOWER(t.description) LIKE LOWER(CONCAT('%', :q, '%')))
+        ORDER BY t.createdAt DESC
+        """)
+    Page<Trip> searchPublic(@Param("q") String q, Pageable pageable);
+
+    /**
      * Feed personalitzat: trips públics ordenats per rating DESC, createdAt DESC.
      * Exclou els viatges del propi usuari autenticat.
      */
