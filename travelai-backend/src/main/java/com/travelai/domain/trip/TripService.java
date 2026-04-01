@@ -90,6 +90,42 @@ public class TripService {
         return tripRepository.findByDestination(destination, pageable).map(this::toResponse);
     }
 
+    @Transactional
+    public TripResponse publishTrip(UUID tripId, User requester) {
+        Trip trip = findActiveOrThrow(tripId);
+        assertOwner(trip, requester);
+        trip.setVisibility(Visibility.PUBLIC);
+        return toResponse(tripRepository.save(trip));
+    }
+
+    @Transactional
+    public TripResponse unpublishTrip(UUID tripId, User requester) {
+        Trip trip = findActiveOrThrow(tripId);
+        assertOwner(trip, requester);
+        trip.setVisibility(Visibility.PRIVATE);
+        return toResponse(tripRepository.save(trip));
+    }
+
+    @Transactional
+    public TripResponse duplicateTrip(UUID tripId, User requester) {
+        Trip original = findActiveOrThrow(tripId);
+        assertOwner(original, requester);
+
+        Trip copy = Trip.builder()
+            .owner(requester)
+            .title("Copia de " + original.getTitle())
+            .description(original.getDescription())
+            .destination(original.getDestination())
+            .startDate(original.getStartDate())
+            .endDate(original.getEndDate())
+            .visibility(Visibility.PRIVATE)
+            .status(TripStatus.DRAFT)
+            .coverImageUrl(original.getCoverImageUrl())
+            .build();
+
+        return toResponse(tripRepository.save(copy));
+    }
+
     // ── helpers ─────────────────────────────────────────────────────────────
 
     Trip findActiveOrThrow(UUID tripId) {
