@@ -2,7 +2,9 @@ package com.travelai.domain.ai;
 
 import com.travelai.domain.ai.agents.ActivityAgent;
 import com.travelai.domain.ai.agents.DayRefinerAgent;
+import com.travelai.domain.ai.agents.EditorAgent;
 import com.travelai.domain.ai.agents.ItineraryAgent;
+import com.travelai.domain.ai.agents.SocialAgent;
 import com.travelai.domain.auth.User;
 import com.travelai.domain.trip.Trip;
 import com.travelai.domain.trip.TripService;
@@ -37,6 +39,8 @@ public class AiController {
     private final ItineraryAgent itineraryAgent;
     private final DayRefinerAgent dayRefinerAgent;
     private final ActivityAgent activityAgent;
+    private final EditorAgent editorAgent;
+    private final SocialAgent socialAgent;
 
     // ── DTOs ─────────────────────────────────────────────────────────────────
 
@@ -46,6 +50,10 @@ public class AiController {
 
     public record ActivitySuggestRequest(
             @NotBlank @Size(max = 50) String category
+    ) {}
+
+    public record EditRequest(
+            @NotBlank @Size(max = 2000) String prompt
     ) {}
 
     // ── Endpoints ────────────────────────────────────────────────────────────
@@ -149,6 +157,76 @@ public class AiController {
                                 .build()))
                 .onErrorResume(e -> {
                     log.error("AiController: error suggerint activitats per trip {} dia {}: {}", id, day, e.getMessage());
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data("{\"message\":\"" + escapeJson(e.getMessage()) + "\"}")
+                            .build());
+                });
+    }
+
+    /**
+     * Edita l'itinerari complet del viatge seguint el prompt de l'usuari en format SSE (streaming).
+     * Aplica exactament les instruccions al itinerari existent, mantenint els dies no mencionats.
+     * Quan el stream finalitza, els dies modificats queden desats a la BD.
+     */
+    @PostMapping(value = "/{id}/edit", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> editItinerary(
+            @PathVariable UUID id,
+            @Valid @RequestBody EditRequest request,
+            @AuthenticationPrincipal User user) {
+
+        Trip trip = tripService.findActiveOrThrow(id);
+        assertOwner(trip, user);
+
+        log.info("AiController: editant itinerari del trip {} (usuari: {})", id, user.getUsername());
+
+        return editorAgent.edit(trip, request.prompt())
+                .map(chunk -> ServerSentEvent.<String>builder()
+                        .event("chunk")
+                        .data(chunk)
+                        .build())
+                .concatWith(Flux.just(
+                        ServerSentEvent.<String>builder()
+                                .event("complete")
+                                .data("{\"status\":\"done\"}")
+                                .build()))
+                .onErrorResume(e -> {
+                    log.error("AiController: error en edició del trip {}: {}", id, e.getMessage());
+                    return Flux.just(ServerSentEvent.<String>builder()
+                            .event("error")
+                            .data("{\"message\":\"" + escapeJson(e.getMessage()) + "\"}")
+                            .build());
+                });
+    }
+
+    /**
+     * Optimitza l'itinerari del viatge basant-se en el feedback social (ratings i comentaris)
+     * en format SSE (streaming).
+     * Quan el stream finalitza, els dies optimitzats queden desats a la BD.
+     */
+    @PostMapping(value = "/{id}/optimize-social", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public Flux<ServerSentEvent<String>> optimizeSocial(
+            @PathVariable UUID id,
+            @AuthenticationPrincipal User user) {
+
+        Trip trip = tripService.findActiveOrThrow(id);
+        assertOwner(trip, user);
+
+        log.info("AiController: optimitzant socialment l'itinerari del trip {} (usuari: {})",
+                id, user.getUsername());
+
+        return socialAgent.optimize(trip)
+                .map(chunk -> ServerSentEvent.<String>builder()
+                        .event("chunk")
+                        .data(chunk)
+                        .build())
+                .concatWith(Flux.just(
+                        ServerSentEvent.<String>builder()
+                                .event("complete")
+                                .data("{\"status\":\"done\"}")
+                                .build()))
+                .onErrorResume(e -> {
+                    log.error("AiController: error en optimització social del trip {}: {}", id, e.getMessage());
                     return Flux.just(ServerSentEvent.<String>builder()
                             .event("error")
                             .data("{\"message\":\"" + escapeJson(e.getMessage()) + "\"}")
