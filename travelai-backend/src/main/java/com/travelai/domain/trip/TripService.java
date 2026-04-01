@@ -147,7 +147,7 @@ public class TripService {
         }
     }
 
-    TripResponse toResponse(Trip trip) {
+    public TripResponse toResponse(Trip trip) {
         Double avg = ratingRepository.averageScoreByTrip(trip).orElse(null);
         return new TripResponse(
             trip.getId(),
