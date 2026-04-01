@@ -1,0 +1,27 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/travelai
+  data:
+    redis:
+      host: localhost
+      password: redis_dev
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+
+minio:
+  endpoint: http://localhost:9000
+
+app:
+  cors-origins: http://localhost:5173,http://127.0.0.1:5173
+
+logging:
+  level:
+    root: DEBUG
+    com.travelai: DEBUG
+    org.springframework.security: DEBUG
+    org.springframework.ai: DEBUG
+    org.springframework.web: DEBUG
+    org.flywaydb: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE

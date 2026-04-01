@@ -1,0 +1,182 @@
+version: '3.9'
+
+networks:
+  travelai-net:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  ollama_data:
+  maven_cache:
+
+services:
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: travelai-postgres
+    networks: [travelai-net]
+    environment:
+      POSTGRES_DB: travelai
+      POSTGRES_USER: travelai
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-travelai_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U travelai -d travelai"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: travelai-redis
+    networks: [travelai-net]
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_dev}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-redis_dev}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  minio:
+    image: minio/minio:latest
+    container_name: travelai-minio
+    networks: [travelai-net]
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: travelai-ollama
+    networks: [travelai-net]
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+    restart: unless-stopped
+
+  ollama-init:
+    image: curlimages/curl:latest
+    container_name: travelai-ollama-init
+    networks: [travelai-net]
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        echo 'Descarregant model ${OLLAMA_MODEL:-qwen2.5:7b}...' &&
+        curl -s -X POST http://ollama:11434/api/pull
+          -H 'Content-Type: application/json'
+          -d '{\"name\": \"${OLLAMA_MODEL:-qwen2.5:7b}\", \"stream\": false}' &&
+        echo 'Model llest.'
+      "
+    restart: "no"
+
+  backend:
+    build:
+      context: ./travelai-backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: travelai-backend
+    networks: [travelai-net]
+    environment:
+      SPRING_PROFILES_ACTIVE: dev
+      DB_URL: jdbc:postgresql://postgres:5432/travelai
+      DB_USERNAME: travelai
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-travelai_dev}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_dev}
+      OLLAMA_BASE_URL: http://ollama:11434
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
+      AI_PROVIDER: ${AI_PROVIDER:-ollama}
+      JWT_SECRET: ${JWT_SECRET:-cambiar-esto-en-produccion-minimo-256bits}
+      JWT_EXPIRATION_MS: 86400000
+      JWT_REFRESH_EXPIRATION_MS: 604800000
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin123}
+      MINIO_BUCKET: travelai
+      APP_FRONTEND_URL: http://localhost:5173
+      APP_CORS_ORIGINS: http://localhost:5173,http://localhost:80
+      APP_CONTACT_EMAIL: ${APP_CONTACT_EMAIL:-privacidad@travelai.local}
+      APP_DPO_EMAIL: ${APP_DPO_EMAIL:-dpo@travelai.local}
+      GDPR_DELETION_DAYS: ${GDPR_DELETION_DAYS:-30}
+      GDPR_LOG_RETENTION_DAYS: ${GDPR_LOG_RETENTION_DAYS:-365}
+      GDPR_MIN_AGE: ${GDPR_MIN_AGE:-14}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./travelai-backend/src:/app/src
+      - maven_cache:/root/.m2
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./travelai-frontend
+      dockerfile: Dockerfile.dev
+    container_name: travelai-frontend
+    networks: [travelai-net]
+    environment:
+      VITE_API_BASE_URL: http://localhost/api/v1
+      VITE_WS_URL: ws://localhost/ws
+      VITE_APP_NAME: TravelAI
+      VITE_GDPR_MIN_AGE: 14
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./travelai-frontend/src:/app/src
+      - ./travelai-frontend/public:/app/public
+      - /app/node_modules
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: travelai-nginx
+    networks: [travelai-net]
+    volumes:
+      - ./nginx/nginx.dev.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+    restart: unless-stopped

@@ -1,0 +1,69 @@
+@base = http://localhost/api/v1
+@token = ENGANXAR_TOKEN_AQUI
+
+### Health
+GET http://localhost:8080/actuator/health
+
+### Registre (amb consentiment GDPR)
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{
+  "name": "Test User",
+  "username": "testuser",
+  "email": "test@test.com",
+  "password": "Test1234!",
+  "ageConfirmed": true,
+  "privacyPolicyAccepted": true,
+  "privacyPolicyVersion": "1.0",
+  "termsAccepted": true,
+  "termsVersion": "1.0"
+}
+
+### Login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "email": "demo@travelai.local", "password": "Demo1234!" }
+
+### Perfil propi
+GET {{base}}/users/me
+Authorization: Bearer {{token}}
+
+### Exportar dades (GDPR Art. 15 i 20)
+GET {{base}}/users/me/data-export
+Authorization: Bearer {{token}}
+
+### Sol·licitar esborrat de compte (GDPR Art. 17)
+POST {{base}}/users/me/delete-request
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "reason": "Ja no vull usar el servei" }
+
+### Crear viatge (visibility PRIVATE per defecte — privacy by default)
+POST {{base}}/trips
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Tòquio a la tardor",
+  "destination": "Tokyo, Japan",
+  "destinationLat": 35.6762,
+  "destinationLng": 139.6503,
+  "startDate": "2025-11-01",
+  "endDate": "2025-11-07",
+  "tripType": "CULTURAL",
+  "budget": "MEDIUM",
+  "travelers": 2,
+  "visibility": "PRIVATE",
+  "notes": "Volem veure el koyo"
+}
+
+### Generar itinerari (SSE)
+POST {{base}}/ai/trips/TRIP_ID_AQUI/generate
+Authorization: Bearer {{token}}
+Accept: text/event-stream
+
+### Política de privacitat
+GET {{base}}/legal/privacy-policy

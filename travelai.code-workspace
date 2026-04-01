@@ -1,0 +1,29 @@
+{
+  "folders": [
+    { "name": "arrel",    "path": "." },
+    { "name": "backend",  "path": "travelai-backend" },
+    { "name": "frontend", "path": "travelai-frontend" }
+  ],
+  "settings": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "[java]": { "editor.defaultFormatter": "redhat.java" },
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "explorer.fileNesting.enabled": true,
+    "explorer.fileNesting.patterns": {
+      "*.vue": "${capture}.spec.js",
+      "pom.xml": "*.xml",
+      "package.json": "package-lock.json, .npmrc, postcss.config.js, tailwind.config.js"
+    },
+    "files.exclude": { "**/node_modules": true, "**/target": true }
+  },
+  "extensions": {
+    "recommendations": [
+      "Vue.volar", "redhat.java", "vscjava.vscode-spring-boot-dashboard",
+      "vscjava.vscode-java-pack", "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss", "ms-azuretools.vscode-docker",
+      "humao.rest-client", "mikestead.dotenv",
+      "streetsidesoftware.code-spell-checker-spanish"
+    ]
+  }
+}
