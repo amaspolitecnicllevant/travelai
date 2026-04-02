@@ -1,211 +1,168 @@
 # TravelAI — Informe de estado del proyecto
 
-> Generado el 2026-04-01 — Actualizado sesión 2
+> Última actualització: 2026-04-02 (sessió 3 — v1.2.0)
 
 ---
 
-## Resumen ejecutivo
+## Resum executiu
 
-El proyecto tiene una **arquitectura excelente y bien estructurada** (DDD, Flyway, JWT, SSE, Docker todo en orden). Lo que hizo cada agente en la primera sesión fue construir el **andamiaje completo** — la base está lista. Lo que falta es la **capa de negocio de IA** (el controller y los agentes) que es el corazón de la aplicación, más completar los flujos GDPR y las vistas del frontend.
+L'aplicació és **completament funcional en el flux principal**: registre, login, creació de viatges i **generació d'itineraris amb IA** funcionen de cap a cap. El model `qwen2.5:7b` (Ollama local) genera itineraris en streaming, els parseja i els desa a PostgreSQL. El frontend mostra l'itinerari generat al TripPlannerView.
 
 ---
 
-## Stack tecnológico
+## Stack tecnològic
 
-| Capa | Tecnología | Versión |
+| Capa | Tecnologia | Versió |
 |---|---|---|
 | Backend | Java + Spring Boot | 21 / 3.3.5 |
 | IA local | Ollama + qwen2.5:7b | latest |
 | IA client | Spring AI Ollama | 1.0.0 |
-| Base de datos | PostgreSQL | 16 |
+| Base de dades | PostgreSQL | 16 |
 | Caché | Redis | 7 |
 | Storage | MinIO | latest |
 | Frontend | Vue 3 + Vite | 3.4 / 5.4 |
 | CSS | Tailwind CSS | 3.4 |
-| Estado | Pinia | 2.2 |
+| Estat | Pinia | 2.2 |
 | Gateway | Nginx | 1.25 |
 
 ---
 
-## Lo que está completamente construido
+## Flux principal — Estat ✅ FUNCIONAL
 
-### BackendBuilderAgent
-
-- Auth completo (JWT + refresh tokens, anti-brute-force, registro con consentimiento GDPR)
-- CRUD de viajes (create/read/update/delete con soft-delete y privacy-by-default)
-- Modelo de datos completo via Flyway (4 migraciones: esquema core, seed data, vista de ratings, tabla itinerarios)
-- Configuración Redis, MinIO, SecurityConfig
-- Infraestructura SSE lista (`OllamaService` con `Flux<String>`, retry logic) — **sin controlador REST todavía**
-- Entidades GDPR: `AuditLog`, `ConsentLog`, `DataDeletionRequest`, `LegalDocument` con esquema en BD
-
-### DevOpsAgent
-
-- Docker Compose con 8 servicios y health checks en todos
-- Nginx con cabeceras de seguridad (CSP, HSTS, X-Frame-Options, Referrer-Policy) y rutas SSE/WS configuradas
-- Dockerfiles multi-stage para backend (Java 21, Virtual Threads) y frontend (Node 20 Alpine)
-
-### FrontendBuilderAgent / FrontendVueAgent
-
-- 16 vistas Vue 3 con Composition API
-- 9 componentes reutilizables (NavBar, TripCard, RatingStars, AiChatBox, etc.)
-- 5 stores Pinia: `auth`, `trips`, `itinerary`, `consent`, `ui`
-- Capa API completa con interceptor de refresh automático de JWT
-- Router con 16 rutas y guards de autenticación (requiresAuth / guestOnly)
-- `useAiStream.js` — consumidor SSE listo para conectar con el backend
-
----
-
-## Endpoints que funcionan
-
-| Método | Endpoint | Descripción |
+| Pas | Estat | Notes |
 |---|---|---|
-| POST | `/api/v1/auth/register` | Registro con validación de consentimiento GDPR |
-| POST | `/api/v1/auth/login` | Login con anti-brute-force |
-| POST | `/api/v1/auth/logout` | Cierre de sesión |
-| POST | `/api/v1/auth/refresh` | Renovación de tokens |
-| POST | `/api/v1/trips` | Crear viaje (visibility=PRIVATE por defecto) |
-| GET | `/api/v1/trips` | Listar viajes del usuario (paginado) |
-| GET | `/api/v1/trips/public` | Listar viajes públicos (paginado) |
-| GET | `/api/v1/trips/{id}` | Obtener viaje (con verificación de propietario) |
-| PUT | `/api/v1/trips/{id}` | Actualizar viaje |
-| DELETE | `/api/v1/trips/{id}` | Soft-delete de viaje |
-| GET | `/api/v1/trips/{id}/itinerary` | Obtener días y actividades |
-| POST | `/api/v1/trips/{id}/ratings` | Valorar un viaje |
+| Registre (`POST /auth/register`) | ✅ | Validació GDPR, consentiment, edat mínima |
+| Login (`POST /auth/login`) | ✅ | JWT access + refresh token |
+| Logout (`POST /auth/logout`) | ✅ | |
+| Crear viatge (amb o sense dates) | ✅ | Correccions V16+V17 (nullable trip_type, budget, start/end_date) |
+| Generar itinerari IA (`POST /ai/trips/{id}/generate`) | ✅ | Streaming SSE, desa a BD al completar |
+| Veure itinerari al planner | ✅ | Frontend recarrega de BD després de generar |
+| Feed públic (`GET /trips/feed`) | ✅ | |
 
 ---
 
-## Gaps críticos — Lo que falta
+## Correccions aplicades (sessions 2–3)
 
-### 1. IA — Feature principal
+### Infraestructura (sessió 3)
+- **Docker snap → Docker CE (apt)**: resolt problema de permisos i bind mounts amb inodes obsolets
+- **Nginx `nosniff` global**: eliminat (bloquejava Vite `/@vite/client` com `text/html`)
+- **sockjs-client `global is not defined`**: eliminat; substituït per `brokerURL` nadiu de `@stomp/stompjs`
 
-| Qué | Descripción | Estado |
+### Auth (sessió 3)
+- **`JwtAuthFilter`**: ara estableix l'entitat `User` com a principal (no el `UUID`), corregint NPE en tots els endpoints que usaven `@AuthenticationPrincipal User user`
+- **`AuthController.logout()`**: adaptat al nou principal `User`
+- **`auth.js` store**: `_save()` compatible amb camps `token`/`accessToken` i estructura plana `userId/username/role`
+- **`RegisterView.vue`**: camps GDPR enviats com a estructura plana (backend espera `privacyPolicyAccepted`, no `consents.privacy`)
+
+### Base de dades (sessió 3)
+| Migració | Descripció |
+|---|---|
+| `V9`–`V15` | Correccions d'esquema acumulades (ratings, refresh_tokens, trips, users, inet columns) |
+| `V16` | `trip_type` i `budget` ara nullable (entitat `Trip` no els estableix) |
+| `V17` | `start_date` i `end_date` ara nullable (creació sense dates) |
+
+### IA (sessió 3)
+- **`ItineraryParser`** reescrit completament:
+  - Repara JSON truncat (compta `{[` i `]}` i tanca els que falten)
+  - Mapeig flexible de camps: `day`/`dayNumber`, `cost`/`estimatedCost`, `name`/`activity`, etc.
+  - Acepta formats alternatius que genera el model (activitats en castellà, camps variats)
+- **`ItineraryResponse.DayPlan`**: afegit `@JsonAlias("name")` per `activity` i `@JsonAlias("category")` per `type`
+- **`TripPlannerView`**: recarrega itinerari de BD (`fetchItinerary`) després de completar la generació
+- **`itinerary.js` store**: transforma `List<ItineraryResponse>` (format backend) al format `{days:[{activities:[]}]}` que espera `ItineraryDay`
+
+---
+
+## Endpoints implementats i verificats
+
+| Mètode | Endpoint | Estat |
 |---|---|---|
-| `AiController` | Endpoints SSE `/api/v1/ai/trips/{id}/generate` y `/days/{day}/refine` | ✅ Implementado |
-| `ItineraryAgent` | Genera itinerario completo por días en JSON y lo persiste | ✅ Implementado |
-| `DayRefinerAgent` | Refina un día específico según prompt del usuario | ✅ Implementado |
-| `BudgetAgent` | Estima costes y ajusta el itinerario al presupuesto | Pendiente |
-| `ActivityAgent` | Sugiere actividades adicionales | ✅ Implementado |
-| `EditorAgent` | Edita el itinerario completo según prompt del usuario | ✅ Implementado |
-| `SocialAgent` | Optimiza el itinerario según valoraciones y comentarios | ✅ Implementado |
-
-**Endpoints implementados:**
-
-```
-POST /api/v1/ai/trips/{id}/generate                   → SSE generación de itinerario completo  ✅
-POST /api/v1/ai/trips/{id}/days/{day}/refine           → Refinar día específico                 ✅
-POST /api/v1/ai/trips/{id}/days/{day}/activities/suggest → Sugerir actividades por categoría   ✅
-POST /api/v1/ai/trips/{id}/edit                        → Editar itinerario completo por prompt  ✅
-POST /api/v1/ai/trips/{id}/optimize-social             → Optimizar según feedback social        ✅
-POST /api/v1/ai/trips/{id}/refine-all                  → Refinamiento en lote                   Pendiente
-GET  /api/v1/ai/trips/{id}/budget-estimate             → Análisis de costes                     Pendiente
-```
-
-**Archivos nuevos creados:**
-- `domain/ai/AiController.java`
-- `domain/ai/agents/ItineraryAgent.java`
-- `domain/ai/agents/DayRefinerAgent.java`
-- `domain/ai/agents/EditorAgent.java`
-- `domain/ai/agents/SocialAgent.java`
-
-### 2. Trips — Ciclo de vida
-
-| Endpoint | Estado |
-|---|---|
-| `POST /api/v1/trips/{id}/publish` | ✅ Implementado |
-| `POST /api/v1/trips/{id}/unpublish` | ✅ Implementado |
-| `POST /api/v1/trips/{id}/duplicate` | ✅ Implementado (crea copia con `visibility=PRIVATE` y título "Copia de {nombre}") |
-| `GET /api/v1/trips/feed` | Pendiente — Feed personalizado |
-
-### 3. GDPR — Esquema listo, lógica de negocio pendiente
-
-| Qué falta | Descripción |
-|---|---|
-| `GdprService` | Exportación de datos, programación de borrado |
-| `AuditService` | Utilidad de logging (el esquema `audit_logs` existe en BD) |
-| `DeletionScheduler` | Job `@Scheduled` para purga de cuentas a los 30 días |
-| Endpoints legales | `GET /api/v1/legal/privacy-policy`, `/terms`, `/cookies` |
-| `GET /api/v1/users/me/data-export` | Exportación ZIP de datos del usuario |
-| `POST /api/v1/users/me/delete-request` | Solicitud de borrado de cuenta |
-
-### 4. Frontend — Vistes implementades/millorades (sessió 2)
-
-| Vista / Componente | Estat actual |
-|---|---|
-| `ExploreView` | Reimplementada — Hero + cerca, destins populars, últims viatges, millor valorats, footer legal |
-| `HomeView` | Millorada — redirect automàtic si autenticat; landing amb features + CTA + footer legal |
-| `CreateTripView` | Millorada — 2 columnes desktop, selector tipus viatge amb icones, selector pressupost visual, DatePicker, preview de dies |
-| `TripCard` | Millorat — badge visibilitat+estat, menú 3 punts (Editar/Duplicar/Eliminar) per al propietari, hover scale+shadow |
-| Tests Vitest | Configurats — `auth.test.js` (3 tests) + `TripCard.test.js` (3 tests); `vitest`, `@vue/test-utils`, `jsdom` afegits |
-| `TripPlannerView` | Esqueleto sin integración con SSE |
-| `AiChatBox` | Parcial, sin conectar con `useAiStream` |
-| `PrivacyPolicyView`, `TermsView`, `CookiePolicyView`, `LegalNoticeView`, `MyDataView` | Placeholders vacíos |
-| `MyProfileView`, `PublicProfileView` | Esqueletos sin implementar |
-| Cookie banner / Consent checkbox | No construidos |
+| POST | `/api/v1/auth/register` | ✅ |
+| POST | `/api/v1/auth/login` | ✅ |
+| POST | `/api/v1/auth/logout` | ✅ |
+| POST | `/api/v1/auth/refresh` | ✅ |
+| GET | `/api/v1/users/me` | ✅ |
+| POST | `/api/v1/trips` | ✅ |
+| GET | `/api/v1/trips/feed` | ✅ |
+| GET | `/api/v1/trips/{id}` | ✅ |
+| PUT | `/api/v1/trips/{id}` | ✅ |
+| DELETE | `/api/v1/trips/{id}` | ✅ |
+| POST | `/api/v1/trips/{id}/publish` | ✅ |
+| POST | `/api/v1/trips/{id}/unpublish` | ✅ |
+| POST | `/api/v1/trips/{id}/duplicate` | ✅ |
+| GET | `/api/v1/trips/{id}/itinerary` | ✅ |
+| POST | `/api/v1/ai/trips/{id}/generate` | ✅ SSE + desa a BD |
+| POST | `/api/v1/ai/trips/{id}/days/{day}/refine` | ✅ SSE |
+| POST | `/api/v1/ai/trips/{id}/days/{day}/activities/suggest` | ✅ SSE |
+| POST | `/api/v1/ai/trips/{id}/edit` | ✅ SSE |
+| POST | `/api/v1/ai/trips/{id}/optimize-social` | ✅ SSE |
+| POST | `/api/v1/ai/trips/{id}/refine-all` | ✅ SSE |
+| GET | `/api/v1/ai/trips/{id}/budget-estimate` | ✅ SSE |
+| POST | `/api/v1/trips/{id}/ratings` | ✅ |
+| POST | `/api/v1/users/me/consent` | ✅ |
+| GET | `/api/v1/legal/**` | ✅ |
 
 ---
 
-## Cumplimiento GDPR — Estado
+## GDPR — Estat
 
-| Requisito | Estado |
+| Requisit | Estat |
 |---|---|
-| Privacy by Default (viajes en PRIVATE) | Implementado |
-| Consentimiento explícito en registro | Implementado |
-| Log de versión y timestamp de consentimiento | Implementado |
-| Esquema de auditoría (`audit_logs`) | Esquema listo, servicio pendiente |
-| Soft-delete con purga a 30 días | Soft-delete implementado, scheduler pendiente |
-| Anti brute-force (bloqueo a 5 intentos) | Esquema implementado |
-| Portabilidad (exportación JSON) | Pendiente |
-| Derecho al olvido (solicitud borrado) | Pendiente |
-| Vistas legales (/privacy, /terms, /cookies) | Placeholders vacíos |
+| Privacy by Default (viatges en PRIVATE) | ✅ |
+| Consentiment explícit en registre | ✅ |
+| Log de versió i timestamp de consentiment | ✅ |
+| Esquema d'auditoria (`audit_logs`) | ✅ Esquema i servei implementats |
+| Soft-delete amb purga als 30 dies | ✅ Scheduler implementat |
+| Anti brute-force (bloqueig a 5 intents) | ✅ |
+| Portabilitat (exportació JSON) | ✅ Endpoint implementat |
+| Dret a l'oblit (sol·licitud d'esborrat) | ✅ Endpoint implementat |
+| Vistes legals (/privacy, /terms, /cookies) | ⚠️ Placeholders (contingut pendent) |
 
 ---
 
-## Tests — Estado (sesión 2)
+## Frontend — Vistes
 
-| Archivo | Tipo | Cobertura |
+| Vista | Estat |
+|---|---|
+| `LoginView` | ✅ Funcional |
+| `RegisterView` | ✅ Funcional (GDPR checkboxes) |
+| `HomeView` | ✅ Landing + redirect si autenticat |
+| `ExploreView` | ✅ Hero, cerca, destins populars |
+| `CreateTripView` | ✅ Formulari complet (tipus, pressupost, dates, visibilitat) |
+| `TripPlannerView` | ✅ Streaming SSE + visualització itinerari + refinament per dia |
+| `TripDetailView` | ✅ Itinerari complet + ratings |
+| `MyProfileView` | ⚠️ Esquelet parcialment implementat |
+| `PublicProfileView` | ⚠️ Esquelet |
+| `MyDataView` | ✅ GDPR: exportació + sol·licitud esborrat |
+| Vistes legals | ⚠️ Placeholders (contingut a completar) |
+
+---
+
+## Tests — Estat
+
+| Arxiu | Tipus | Tests |
 |---|---|---|
-| `AuthServiceTest.java` | Unitario (@ExtendWith Mockito) | register_success, register_withoutConsent_throws (menor de edad), login_success, login_wrongPassword_throws, login_lockedAccount_throws |
-| `TripServiceTest.java` | Unitario (@ExtendWith Mockito) | createTrip_defaultPrivate, deleteTrip_softDelete, duplicateTrip_isPrivate, getTrip_notOwner_throws |
-| `AuthControllerIT.java` | Integración (@SpringBootTest + H2) | POST /register → 201 con JWT, POST /login → 200 con tokens, POST /login credenciales incorrectas → 401 |
-
-**Dependencia añadida a pom.xml:**
-- `com.h2database:h2` (scope: test)
-- Perfil `test` con `application-test.yml` usando H2 en memoria, Flyway desactivado
-
-## Prioridad sugerida para la próxima sesión
-
-1. **`TripPlannerView` con streaming UI** → conecta el frontend con la IA via SSE (EditorAgent + SocialAgent ya disponibles)
-2. **`GdprService` + `DeletionScheduler`** → completa el cumplimiento legal
-3. **Vistas legales** → documentos servidos desde BD + cookie banner
-4. **`BudgetAgent`** → endpoint `/budget-estimate` para análisis de costes
-5. **Tests para agentes IA** → unit tests de EditorAgent y SocialAgent con Mockito
+| `AuthServiceTest.java` | Unitari (Mockito) | register, login, brute-force, locked account |
+| `TripServiceTest.java` | Unitari (Mockito) | create, delete, duplicate, ownership check |
+| `AuthControllerIT.java` | Integració (H2) | register 201, login 200, wrong credentials 401 |
+| `auth.test.js` | Vitest | 3 tests store Pinia |
+| `TripCard.test.js` | Vitest | 3 tests component |
 
 ---
 
-## Estructura de archivos relevante
+## Versions publicades
 
-```
-travelai/
-├── travelai-backend/
-│   └── src/main/java/.../
-│       ├── auth/           ✅ Completo
-│       ├── trip/           ✅ publish/unpublish/duplicate implementados
-│       ├── ai/             ✅ AiController + ItineraryAgent + DayRefinerAgent + EditorAgent + SocialAgent implementados
-│       ├── legal/          ❌ Entidades y esquema listos, sin Service ni Controller
-│       └── config/         ✅ Completo
-├── travelai-frontend/
-│   └── src/
-│       ├── api/            ✅ Completo
-│       ├── stores/         ✅ Completo
-│       ├── composables/    ✅ Completo (useAiStream listo para conectar)
-│       ├── views/          ⚠️  Auth y Trips OK, AI/Legal/Profile pendientes
-│       └── components/     ⚠️  TripCard/NavBar OK, AiChatBox parcial
-├── nginx/                  ✅ Completo
-├── docker-compose.yml      ✅ Completo
-└── docs/
-    └── legal/              ❌ Vacío
-```
+| Versió | Data | Descripció |
+|---|---|---|
+| v1.0.0 | 2026-04-01 | Primera versió desplegada |
+| v1.1.0 | 2026-04-01 | Frontend i backend funcionals |
+| v1.2.0 | 2026-04-02 | **IA completament funcional**: generació, streaming i desament d'itineraris |
 
 ---
 
-*Generado por análisis estático del código fuente del proyecto.*
+## Prioritats per a la propera sessió
+
+1. **Vistes legals** — Completar contingut de `/privacy`, `/terms`, `/cookies` (servit des de BD)
+2. **`MyProfileView`** — Pestanyes viatges/ajustos/dades personals funcionals
+3. **`BudgetAgent` frontend** — Connectar el botó "Estimar pressupost" al TripPlannerView
+4. **Tests IA** — Tests unitaris per a `ItineraryParser` i `ItineraryAgent`
+5. **Follows + notificacions** — Fase 2 social (WebSocket/STOMP)
