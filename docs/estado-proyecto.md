@@ -1,6 +1,6 @@
 # TravelAI — Informe de estado del proyecto
 
-> Generado el 2026-04-01
+> Generado el 2026-04-01 — Actualizado sesión 2
 
 ---
 
@@ -84,21 +84,28 @@ El proyecto tiene una **arquitectura excelente y bien estructurada** (DDD, Flywa
 | `ItineraryAgent` | Genera itinerario completo por días en JSON y lo persiste | ✅ Implementado |
 | `DayRefinerAgent` | Refina un día específico según prompt del usuario | ✅ Implementado |
 | `BudgetAgent` | Estima costes y ajusta el itinerario al presupuesto | Pendiente |
-| `ActivityAgent` | Sugiere actividades adicionales | Pendiente |
+| `ActivityAgent` | Sugiere actividades adicionales | ✅ Implementado |
+| `EditorAgent` | Edita el itinerario completo según prompt del usuario | ✅ Implementado |
+| `SocialAgent` | Optimiza el itinerario según valoraciones y comentarios | ✅ Implementado |
 
 **Endpoints implementados:**
 
 ```
-POST /api/v1/ai/trips/{id}/generate          → SSE generación de itinerario completo  ✅
-POST /api/v1/ai/trips/{id}/days/{day}/refine → Refinar día específico                 ✅
-POST /api/v1/ai/trips/{id}/refine-all        → Refinamiento en lote                   Pendiente
-GET  /api/v1/ai/trips/{id}/budget-estimate   → Análisis de costes                     Pendiente
+POST /api/v1/ai/trips/{id}/generate                   → SSE generación de itinerario completo  ✅
+POST /api/v1/ai/trips/{id}/days/{day}/refine           → Refinar día específico                 ✅
+POST /api/v1/ai/trips/{id}/days/{day}/activities/suggest → Sugerir actividades por categoría   ✅
+POST /api/v1/ai/trips/{id}/edit                        → Editar itinerario completo por prompt  ✅
+POST /api/v1/ai/trips/{id}/optimize-social             → Optimizar según feedback social        ✅
+POST /api/v1/ai/trips/{id}/refine-all                  → Refinamiento en lote                   Pendiente
+GET  /api/v1/ai/trips/{id}/budget-estimate             → Análisis de costes                     Pendiente
 ```
 
 **Archivos nuevos creados:**
 - `domain/ai/AiController.java`
 - `domain/ai/agents/ItineraryAgent.java`
 - `domain/ai/agents/DayRefinerAgent.java`
+- `domain/ai/agents/EditorAgent.java`
+- `domain/ai/agents/SocialAgent.java`
 
 ### 2. Trips — Ciclo de vida
 
@@ -120,10 +127,15 @@ GET  /api/v1/ai/trips/{id}/budget-estimate   → Análisis de costes            
 | `GET /api/v1/users/me/data-export` | Exportación ZIP de datos del usuario |
 | `POST /api/v1/users/me/delete-request` | Solicitud de borrado de cuenta |
 
-### 4. Frontend — Vistas sin implementar
+### 4. Frontend — Vistes implementades/millorades (sessió 2)
 
-| Vista / Componente | Estado actual |
+| Vista / Componente | Estat actual |
 |---|---|
+| `ExploreView` | Reimplementada — Hero + cerca, destins populars, últims viatges, millor valorats, footer legal |
+| `HomeView` | Millorada — redirect automàtic si autenticat; landing amb features + CTA + footer legal |
+| `CreateTripView` | Millorada — 2 columnes desktop, selector tipus viatge amb icones, selector pressupost visual, DatePicker, preview de dies |
+| `TripCard` | Millorat — badge visibilitat+estat, menú 3 punts (Editar/Duplicar/Eliminar) per al propietari, hover scale+shadow |
+| Tests Vitest | Configurats — `auth.test.js` (3 tests) + `TripCard.test.js` (3 tests); `vitest`, `@vue/test-utils`, `jsdom` afegits |
 | `TripPlannerView` | Esqueleto sin integración con SSE |
 | `AiChatBox` | Parcial, sin conectar con `useAiStream` |
 | `PrivacyPolicyView`, `TermsView`, `CookiePolicyView`, `LegalNoticeView`, `MyDataView` | Placeholders vacíos |
@@ -148,13 +160,25 @@ GET  /api/v1/ai/trips/{id}/budget-estimate   → Análisis de costes            
 
 ---
 
+## Tests — Estado (sesión 2)
+
+| Archivo | Tipo | Cobertura |
+|---|---|---|
+| `AuthServiceTest.java` | Unitario (@ExtendWith Mockito) | register_success, register_withoutConsent_throws (menor de edad), login_success, login_wrongPassword_throws, login_lockedAccount_throws |
+| `TripServiceTest.java` | Unitario (@ExtendWith Mockito) | createTrip_defaultPrivate, deleteTrip_softDelete, duplicateTrip_isPrivate, getTrip_notOwner_throws |
+| `AuthControllerIT.java` | Integración (@SpringBootTest + H2) | POST /register → 201 con JWT, POST /login → 200 con tokens, POST /login credenciales incorrectas → 401 |
+
+**Dependencia añadida a pom.xml:**
+- `com.h2database:h2` (scope: test)
+- Perfil `test` con `application-test.yml` usando H2 en memoria, Flyway desactivado
+
 ## Prioridad sugerida para la próxima sesión
 
-1. **`AiController` + agentes de itinerario** → desbloquea el feature principal de la plataforma
-2. **Endpoints publish/unpublish/duplicate** → completa el ciclo de vida de los viajes
-3. **`TripPlannerView` con streaming UI** → conecta el frontend con la IA via SSE
-4. **`GdprService` + `DeletionScheduler`** → completa el cumplimiento legal
-5. **Vistas legales** → documentos servidos desde BD + cookie banner
+1. **`TripPlannerView` con streaming UI** → conecta el frontend con la IA via SSE (EditorAgent + SocialAgent ya disponibles)
+2. **`GdprService` + `DeletionScheduler`** → completa el cumplimiento legal
+3. **Vistas legales** → documentos servidos desde BD + cookie banner
+4. **`BudgetAgent`** → endpoint `/budget-estimate` para análisis de costes
+5. **Tests para agentes IA** → unit tests de EditorAgent y SocialAgent con Mockito
 
 ---
 
@@ -166,7 +190,7 @@ travelai/
 │   └── src/main/java/.../
 │       ├── auth/           ✅ Completo
 │       ├── trip/           ✅ publish/unpublish/duplicate implementados
-│       ├── ai/             ✅ AiController + ItineraryAgent + DayRefinerAgent implementados
+│       ├── ai/             ✅ AiController + ItineraryAgent + DayRefinerAgent + EditorAgent + SocialAgent implementados
 │       ├── legal/          ❌ Entidades y esquema listos, sin Service ni Controller
 │       └── config/         ✅ Completo
 ├── travelai-frontend/

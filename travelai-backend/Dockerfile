@@ -4,7 +4,7 @@ COPY pom.xml .
 RUN mvn dependency:go-offline -q
 COPY src ./src
 EXPOSE 8080
-CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-XX:+UseVirtualThreads"]
+CMD ["mvn", "spring-boot:run"]
 
 FROM maven:3.9-eclipse-temurin-21 AS builder
 WORKDIR /build
@@ -19,4 +19,4 @@ WORKDIR /app
 COPY --from=builder /build/target/*.jar app.jar
 USER app
 EXPOSE 8080
-ENTRYPOINT ["java","-XX:+UseVirtualThreads","-XX:MaxRAMPercentage=75.0","-jar","app.jar"]
+ENTRYPOINT ["java","-XX:MaxRAMPercentage=75.0","-jar","app.jar"]

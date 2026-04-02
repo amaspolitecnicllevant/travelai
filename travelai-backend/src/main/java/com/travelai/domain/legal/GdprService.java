@@ -229,14 +229,15 @@ public class GdprService {
 
     @Transactional
     public void saveConsent(UUID userId, ConsentRequest req, String ipAddress) {
-        ConsentLog log = ConsentLog.builder()
-                .userId(userId)
-                .consentType(req.type())
-                .consentVersion(req.version())
+        User user = findUserOrThrow(userId);
+        ConsentLog consentLog = ConsentLog.builder()
+                .user(user)
+                .consentType(req.consentType())
+                .consentVersion(req.consentVersion())
                 .accepted(req.accepted())
                 .ipAddress(ipAddress)
                 .build();
-        consentLogRepository.save(log);
+        consentLogRepository.save(consentLog);
     }
 
     private byte[] wrapInZip(String fileName, byte[] content) {

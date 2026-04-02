@@ -1,6 +1,8 @@
 package com.travelai.domain.auth;
 
 import com.travelai.domain.auth.dto.*;
+import com.travelai.domain.legal.AuditLog;
+import com.travelai.domain.legal.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

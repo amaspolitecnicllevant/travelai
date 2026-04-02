@@ -24,8 +24,8 @@ public class OllamaService {
         var prompt = buildPrompt(systemPrompt, userMessage);
         log.debug("Iniciant stream Ollama — {} chars", userMessage.length());
         return chatModel.stream(prompt)
-            .map(res -> res.getResult().getOutput().getContent())
-            .filter(chunk -> chunk != null && !chunk.isEmpty())
+            .map(res -> res.getResult().getOutput().getText())
+            .filter(chunk -> chunk != null && !chunk.isBlank())
             .onErrorMap(e -> new AiException("Error en stream: " + e.getMessage()));
     }
 
@@ -34,7 +34,7 @@ public class OllamaService {
     public String chat(String systemPrompt, String userMessage) {
         try {
             return chatModel.call(buildPrompt(systemPrompt, userMessage))
-                .getResult().getOutput().getContent();
+                .getResult().getOutput().getText();
         } catch (Exception e) {
             throw new AiException("Error en crida a Ollama: " + e.getMessage());
         }
@@ -43,7 +43,7 @@ public class OllamaService {
     private Prompt buildPrompt(String system, String user) {
         return new Prompt(
             List.of(new SystemMessage(system), new UserMessage(user)),
-            OllamaOptions.builder().withFormat("json").withTemperature(0.7f).build()
+            OllamaOptions.builder().temperature(0.7).build()
         );
     }
 }

@@ -3,6 +3,7 @@ package com.travelai.domain.auth;
 import com.travelai.domain.auth.dto.AuthResponse;
 import com.travelai.domain.auth.dto.LoginRequest;
 import com.travelai.domain.auth.dto.RegisterRequest;
+import com.travelai.domain.legal.AuditLogRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
