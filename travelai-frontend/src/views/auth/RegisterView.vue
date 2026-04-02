@@ -11,13 +11,16 @@ const form = ref({
 
 async function submit() {
   await register({
-    name: form.value.name, username: form.value.username,
-    email: form.value.email, password: form.value.password,
-    birthDate: form.value.birthDate,
-    consents: {
-      privacy: { accepted: form.value.privacyAccepted, version: '1.0' },
-      terms:   { accepted: form.value.termsAccepted,   version: '1.0' },
-    },
+    name:                 form.value.name,
+    username:             form.value.username,
+    email:                form.value.email,
+    password:             form.value.password,
+    birthDate:            form.value.birthDate,
+    consentVersion:       '1.0',
+    privacyPolicyAccepted: form.value.privacyAccepted,
+    termsAccepted:        form.value.termsAccepted,
+    ageConfirmed:         form.value.ageConfirmed,
+    marketingAccepted:    false,
   })
 }
 </script>
