@@ -13,11 +13,8 @@ export const useItineraryStore = defineStore('itinerary', () => {
       const { data } = await itineraryApi.get(tripId)
       // Backend returns List<ItineraryResponse>: [{dayNumber, date, plans:[{time,activity,description,location,type}]}]
       // Transform to the format ItineraryDay expects: [{dayNumber, date, title, activities:[{time,name,...}]}]
-      const days = (Array.isArray(data) ? data : []).map(d => ({
-        dayNumber: d.dayNumber,
-        date:      d.date,
-        title:     d.title || `Dia ${d.dayNumber}`,
-        activities: (d.plans || d.activities || []).map(p => ({
+      const days = (Array.isArray(data) ? data : []).map(d => {
+        const activities = (d.plans || d.activities || []).map(p => ({
           time:        p.time,
           name:        p.activity || p.name || p.title,
           description: p.description,
@@ -25,9 +22,18 @@ export const useItineraryStore = defineStore('itinerary', () => {
           type:        p.type,
           duration:    p.duration,
           cost:        p.cost,
-        })),
-        generatedByAi: d.generatedByAi,
-      }))
+        }))
+        // Resum: fins a 3 noms d'activitat separats per ·
+        const summary = activities.slice(0, 3).map(a => a.name).filter(Boolean).join(' · ')
+        return {
+          dayNumber:   d.dayNumber,
+          date:        d.date,
+          title:       d.title || `Dia ${d.dayNumber}`,
+          description: summary || null,
+          activities,
+          generatedByAi: d.generatedByAi,
+        }
+      })
       currentItinerary.value = { days }
       return currentItinerary.value
     } catch (e) { error.value = e.message; return null }

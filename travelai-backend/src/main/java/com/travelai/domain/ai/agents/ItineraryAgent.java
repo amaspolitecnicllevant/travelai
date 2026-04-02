@@ -95,7 +95,10 @@ public class ItineraryAgent {
                 int dayNumber = plan.dayNumber() > 0 ? plan.dayNumber() : (i + 1);
                 LocalDate dayDate = baseDate.plusDays(dayNumber - 1L);
 
-                String contentJson = objectMapper.writeValueAsString(plan.activities());
+                // Guardar {title, activities} per poder mostrar el títol al frontend
+                String title = plan.title() != null ? plan.title() : "Dia " + dayNumber;
+                var dayContent = java.util.Map.of("title", title, "activities", plan.activities() != null ? plan.activities() : java.util.List.of());
+                String contentJson = objectMapper.writeValueAsString(dayContent);
 
                 Itinerary itinerary = itineraryRepository
                         .findByTripAndDayNumber(trip, dayNumber)

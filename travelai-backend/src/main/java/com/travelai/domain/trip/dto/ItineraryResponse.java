@@ -11,6 +11,7 @@ public record ItineraryResponse(
     UUID id,
     Integer dayNumber,
     LocalDate date,
+    String title,
     List<DayPlan> plans,
     boolean generatedByAi,
     Integer version,

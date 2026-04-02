@@ -62,11 +62,11 @@ function closeRefinePanel() {
   refineDayNumber.value = null
 }
 
-async function handleRefineSubmit(prompt) {
-  const result = await refineDay(route.params.id, refineDayNumber.value, prompt)
-  if (result && result.length > 0) {
-    itineraryStore.setDays(result)
-  }
+// La crida a refineDay la fa AiChatBox internament.
+// Quan acaba, emet 'days-updated' i recarreguem de BD.
+async function handleRefineDone() {
+  closeRefinePanel()
+  await itineraryStore.fetchItinerary(route.params.id)
 }
 
 function formatDate(dateStr) {
@@ -298,7 +298,7 @@ function formatDate(dateStr) {
             :trip-id="route.params.id"
             :day-number="refineDayNumber"
             :disabled="streaming"
-            @submit="handleRefineSubmit"
+            @days-updated="handleRefineDone"
           />
         </div>
       </div>

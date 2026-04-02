@@ -31,11 +31,8 @@ onMounted(async () => {
     trip.value = tripRes.data
 
     // Transform List<ItineraryResponse> → [{dayNumber, date, title, activities}]
-    days.value = (Array.isArray(itinRes.data) ? itinRes.data : []).map(d => ({
-      dayNumber:  d.dayNumber,
-      date:       d.date,
-      title:      d.title || `Dia ${d.dayNumber}`,
-      activities: (d.plans || []).map(p => ({
+    days.value = (Array.isArray(itinRes.data) ? itinRes.data : []).map(d => {
+      const activities = (d.plans || []).map(p => ({
         time:        p.time,
         name:        p.activity || p.name,
         description: p.description,
@@ -43,8 +40,16 @@ onMounted(async () => {
         type:        p.type,
         cost:        p.cost,
         duration:    p.duration,
-      })),
-    }))
+      }))
+      const summary = activities.slice(0, 3).map(a => a.name).filter(Boolean).join(' · ')
+      return {
+        dayNumber:   d.dayNumber,
+        date:        d.date,
+        title:       d.title || `Dia ${d.dayNumber}`,
+        description: summary || null,
+        activities,
+      }
+    })
   } catch (e) {
     error.value = e.response?.data?.message || 'Error carregant el viatge'
   } finally {

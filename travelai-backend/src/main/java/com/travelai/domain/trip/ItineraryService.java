@@ -82,26 +82,35 @@ public class ItineraryService {
     }
 
     private ItineraryResponse toResponse(Itinerary itinerary) {
-        List<ItineraryResponse.DayPlan> plans = parsePlans(itinerary.getContentJson());
+        String title = null;
+        List<ItineraryResponse.DayPlan> plans;
+
+        try {
+            // contentJson pot ser {title, activities:[...]} o bé directament [...]
+            var node = objectMapper.readTree(itinerary.getContentJson());
+            if (node.isObject() && node.has("activities")) {
+                title = node.has("title") ? node.get("title").asText() : null;
+                plans = objectMapper.readerForListOf(ItineraryResponse.DayPlan.class)
+                                    .readValue(node.get("activities"));
+            } else {
+                plans = objectMapper.readValue(itinerary.getContentJson(),
+                            new TypeReference<List<ItineraryResponse.DayPlan>>() {});
+            }
+        } catch (Exception e) {
+            log.warn("No s'ha pogut parsejar el contentJson de l'itinerari: {}", e.getMessage());
+            plans = Collections.emptyList();
+        }
+
         return new ItineraryResponse(
             itinerary.getId(),
             itinerary.getDayNumber(),
             itinerary.getDate(),
+            title,
             plans,
             itinerary.isGeneratedByAi(),
             itinerary.getVersion(),
             itinerary.getCreatedAt(),
             itinerary.getUpdatedAt()
         );
-    }
-
-    private List<ItineraryResponse.DayPlan> parsePlans(String contentJson) {
-        try {
-            return objectMapper.readValue(contentJson,
-                new TypeReference<List<ItineraryResponse.DayPlan>>() {});
-        } catch (Exception e) {
-            log.warn("No s'ha pogut parsejar el contentJson de l'itinerari: {}", e.getMessage());
-            return Collections.emptyList();
-        }
     }
 }

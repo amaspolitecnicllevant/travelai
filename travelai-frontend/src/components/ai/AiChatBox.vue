@@ -32,8 +32,7 @@ async function send() {
   const text = prompt.value.trim()
   if (!text || isDisabled.value) return
 
-  // Emetre a la vista parent per si vol gestionar-ho ella
-  emit('submit', text)
+  prompt.value = ''
 
   let result
   if (props.dayNumber) {
@@ -42,11 +41,8 @@ async function send() {
     result = await refineAll(props.tripId, text)
   }
 
-  if (result && result.length > 0) {
-    emit('days-updated', result)
-  }
-
-  prompt.value = ''
+  // Notificar el pare que ha acabat (amb o sense dies parseats)
+  emit('days-updated', result || [])
 }
 
 function onKeydown(e) {
