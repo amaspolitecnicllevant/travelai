@@ -1,6 +1,5 @@
 import { ref } from 'vue'
 import { Client } from '@stomp/stompjs'
-import SockJS from 'sockjs-client'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useToast } from '@/composables/useToast'
@@ -13,13 +12,13 @@ export function useWebSocket() {
   const notifications = useNotificationsStore()
   const toast         = useToast()
 
-  const wsUrl = import.meta.env.VITE_WS_URL || '/ws'
+  const wsUrl = (import.meta.env.VITE_WS_URL || 'ws://localhost/ws').replace(/^http/, 'ws')
 
   function connect() {
     if (!auth.isLoggedIn || connected.value) return
 
     client.value = new Client({
-      webSocketFactory: () => new SockJS(wsUrl),
+      brokerURL: wsUrl,
       connectHeaders: {
         Authorization: `Bearer ${auth.accessToken}`
       },
