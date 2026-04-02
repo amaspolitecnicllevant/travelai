@@ -17,9 +17,14 @@ const { deleteTrip } = useTrips()
 
 const isOwner = computed(() =>
   auth.isLoggedIn && (
+    auth.user?.username === props.trip?.ownerUsername ||
     auth.user?.id === props.trip?.author?.id ||
     auth.user?.username === props.trip?.author?.username
   )
+)
+
+const tripLink = computed(() =>
+  isOwner.value ? `/trips/${props.trip.id}/planner` : `/trips/${props.trip.id}`
 )
 
 const menuOpen    = ref(false)
@@ -73,7 +78,7 @@ const statusConfig = {
 
 <template>
   <div class="relative group">
-    <router-link :to="`/trips/${trip.id}`" class="block">
+    <router-link :to="tripLink" class="block">
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden
                   hover:shadow-lg hover:scale-[1.02] transition-all duration-200">
 
