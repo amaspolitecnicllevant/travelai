@@ -64,7 +64,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                 if (user.isAccountActive() && !user.isLocked()) {
                     var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
                     var authentication = new UsernamePasswordAuthenticationToken(
-                        userId, null, authorities
+                        user, null, authorities
                     );
                     authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authentication);

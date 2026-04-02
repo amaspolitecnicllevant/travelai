@@ -46,10 +46,9 @@ onMounted(async () => {
 })
 
 async function handleGenerate() {
-  const result = await generate(route.params.id)
-  if (result && result.length > 0) {
-    itineraryStore.setDays(result)
-  }
+  await generate(route.params.id)
+  // Reload from DB — the backend saves the parsed itinerary after streaming
+  await itineraryStore.fetchItinerary(route.params.id)
 }
 
 function openRefinePanel(dayNumber) {

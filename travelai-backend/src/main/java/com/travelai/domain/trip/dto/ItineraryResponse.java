@@ -1,5 +1,7 @@
 package com.travelai.domain.trip.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -17,9 +19,9 @@ public record ItineraryResponse(
 ) {
     public record DayPlan(
         String time,
-        String activity,
+        @JsonAlias("name") String activity,
         String description,
         String location,
-        String type
+        @JsonAlias("category") String type
     ) {}
 }

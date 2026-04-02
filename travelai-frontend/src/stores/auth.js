@@ -42,10 +42,12 @@ export const useAuthStore = defineStore('auth', () => {
     } catch { _clear() }
   }
 
-  function _save({ user: u, accessToken: at, refreshToken: rt }) {
-    user.value = u; accessToken.value = at
-    localStorage.setItem('user', JSON.stringify(u))
-    localStorage.setItem('accessToken', at)
+  function _save({ token, accessToken: at, refreshToken: rt, userId, username, role }) {
+    const resolvedToken = token || at
+    const resolvedUser  = { id: userId, username, role }
+    user.value = resolvedUser; accessToken.value = resolvedToken
+    localStorage.setItem('user', JSON.stringify(resolvedUser))
+    localStorage.setItem('accessToken', resolvedToken)
     localStorage.setItem('refreshToken', rt)
   }
   function _clear() {

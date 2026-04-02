@@ -9,8 +9,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.UUID;
-
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -38,12 +36,12 @@ public class AuthController {
 
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
-        @AuthenticationPrincipal UUID userId,
+        @AuthenticationPrincipal User user,
         @RequestHeader(value = "Authorization", required = false) String authHeader,
         HttpServletRequest httpRequest
     ) {
         String refreshToken = extractBearerToken(authHeader);
-        authService.logout(userId, refreshToken, httpRequest);
+        authService.logout(user != null ? user.getId() : null, refreshToken, httpRequest);
         return ResponseEntity.noContent().build();
     }
 
