@@ -159,10 +159,26 @@ L'aplicació és **completament funcional en el flux principal**: registre, logi
 
 ---
 
+## Pendent de verificar (inici sessió 4)
+
+Canvis fets al final de la sessió 3 que cal verificar manualment al navegador:
+
+| Que cal verificar | On |
+|---|---|
+| Refinament de dia: dia actualitzat es mostra al planner després de refinar | `/trips/{id}/planner` → botó "Refinar" |
+| TripCard menú 3 punts (Editar/Duplicar/Eliminar) apareix per al propietari | `/profile` → "Mis viajes" |
+| Títol i resum de dia visibles a la capçalera de cada dia | `/trips/{id}/planner` i `/trips/{id}` |
+| `DayRefinerAgent`: format `{title, activities}` desat correctament després de refinar | Verificar via API `/trips/{id}/itinerary` |
+| TripDetailView per a visitants: error correcte en viatge PRIVATE | Accedir a `/trips/{id}` sense ser propietari |
+
+---
+
 ## Prioritats per a la propera sessió
 
-1. **Vistes legals** — Completar contingut de `/privacy`, `/terms`, `/cookies` (servit des de BD)
-2. **`MyProfileView`** — Pestanyes viatges/ajustos/dades personals funcionals
-3. **`BudgetAgent` frontend** — Connectar el botó "Estimar pressupost" al TripPlannerView
-4. **Tests IA** — Tests unitaris per a `ItineraryParser` i `ItineraryAgent`
-5. **Follows + notificacions** — Fase 2 social (WebSocket/STOMP)
+1. **Verificar ítems de la taula anterior** abans de continuar
+2. **Vistes legals** — Completar contingut de `/privacy`, `/terms`, `/cookies`
+3. **`MyProfileView`** — Verificar pestanya viatges i navegació al planner
+4. **`PublicProfileView`** — Mostrar viatges públics d'un usuari
+5. **`BudgetAgent` frontend** — Connectar botó "Estimar pressupost"
+6. **Tests IA** — Tests unitaris per a `ItineraryParser` (JSON truncat, camps variats)
+7. **Follows + notificacions** — Fase 2 social
