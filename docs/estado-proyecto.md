@@ -1,6 +1,6 @@
 # TravelAI — Informe de estado del proyecto
 
-> Última actualització: 2026-04-02 (sessió 3 — v1.2.0)
+> Última actualització: 2026-04-02 (sessió 3 — v1.2.1)
 
 ---
 
@@ -159,13 +159,23 @@ L'aplicació és **completament funcional en el flux principal**: registre, logi
 
 ---
 
+## Correccions aplicades (sessió 3 — final)
+
+### Panel de refinament de dia (fix al final de sessió 3)
+- **Problema 1 — "network error" en obrir el panel**: El panel mostrava `streamError` de la instància `useAiStream` del planner (usada per `generate()`). Si la generació havia deixat un error, apareixia immediatament al panel com a "error de xarxa".
+- **Problema 2 — "no fa res" en enviar**: El panel mostrava l'estat `streaming`/`rawBuffer` del planner, no del `AiChatBox`. Com que `AiChatBox` té la seva pròpia instància de `useAiStream`, el planner mai es posa en `streaming=true` durant el refinament, i l'usuari no veia cap feedback.
+- **Solució**: Eliminats els blocs `v-if="streaming"` i `v-if="streamError"` del contingut del panel. `AiChatBox` ja mostra el seu propi estat de streaming, progrés, buffer i errors internament.
+
+---
+
 ## Pendent de verificar (inici sessió 4)
 
 Canvis fets al final de la sessió 3 que cal verificar manualment al navegador:
 
 | Que cal verificar | On |
 |---|---|
-| Refinament de dia: dia actualitzat es mostra al planner després de refinar | `/trips/{id}/planner` → botó "Refinar" |
+| Refinament de dia: botó "Refinar" obre panel, s'envia el prompt i el dia es refresca | `/trips/{id}/planner` → botó "Refinar" |
+| Refinament de dia: `AiChatBox` mostra l'estat de streaming i el resultat correctament | Panel refinar — textarea + botó "Enviar" |
 | TripCard menú 3 punts (Editar/Duplicar/Eliminar) apareix per al propietari | `/profile` → "Mis viajes" |
 | Títol i resum de dia visibles a la capçalera de cada dia | `/trips/{id}/planner` i `/trips/{id}` |
 | `DayRefinerAgent`: format `{title, activities}` desat correctament després de refinar | Verificar via API `/trips/{id}/itinerary` |

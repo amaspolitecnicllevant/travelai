@@ -275,29 +275,10 @@ function formatDate(dateStr) {
 
         <!-- Contingut panel -->
         <div class="flex-1 overflow-y-auto p-4">
-          <!-- Text streaming en el panel -->
-          <div v-if="streaming" class="mb-4">
-            <div class="flex items-center gap-2 mb-2">
-              <LoadingSpinner size="sm" />
-              <span class="text-sm text-indigo-600 font-medium">{{ progress }}</span>
-            </div>
-            <div v-if="rawBuffer"
-                 class="bg-gray-50 rounded-xl p-3 text-sm text-gray-700 font-mono whitespace-pre-wrap
-                        max-h-64 overflow-y-auto">
-              {{ rawBuffer }}<span class="animate-pulse text-indigo-500">▌</span>
-            </div>
-          </div>
-
-          <!-- Error -->
-          <div v-if="streamError" class="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
-            <p class="text-sm text-red-600">{{ streamError }}</p>
-          </div>
-
-          <!-- Chat box -->
+          <!-- Chat box — gestiona el seu propi estat de streaming i errors -->
           <AiChatBox
             :trip-id="route.params.id"
             :day-number="refineDayNumber"
-            :disabled="streaming"
             @days-updated="handleRefineDone"
           />
         </div>
