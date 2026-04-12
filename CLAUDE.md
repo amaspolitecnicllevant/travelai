@@ -76,7 +76,10 @@ travelai/
    - Branca: main (commit 344df2f)
    - Totes les vistes implementades, V1–V22 Flyway, cap stub pendent
 2. 🔄 Social — Follows llistes, feed personalitzat, comentaris, notificacions RT
-   - Branca activa: `feat/fase-2-social`
-   - Pendent: GET /followers|/following, comentaris, WebSocket notif, feed by follows
+   - Branca activa: `feat/fase-2-sessio8`
+   - ✅ Comentaris: Comment entitat, V23, GET/POST/DELETE /trips/{id}/comments, CommentSection.vue
+   - ✅ Seguidors/seguint: GET /users/{username}/followers|following, FollowListModal.vue
+   - ✅ Feed personalitzat: trips de follows primer (findPersonalizedFeed)
+   - Pendent: notificacions RT via WebSocket, CommentSection al propietari del viatge
 3. ⬜ IA avançada — Multi-turn, cerca web, clima, pressupost
 4. ⬜ Producció — Docker multi-stage, HTTPS, CI/CD, auditoria RGPD completa
