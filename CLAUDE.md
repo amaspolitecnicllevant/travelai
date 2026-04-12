@@ -66,8 +66,17 @@ travelai/
 - Format commits: `tipus(domini): descripció`
 - Rames: main, develop, feat/nom, fix/nom
 
+## Model IA
+- **Model actiu:** `gemma4:26b-a4b-it-q4_K_M` (Ollama local)
+- **numCtx:** 8192 — NO augmentar, causa OOM
+- Sistema de prompts en anglès concís
+
 ## Fases
-1. MVP — Auth, CRUD viatges, IA itineraris, feed, valoracions
-2. Social — Follows, feed personalitzat, cerca, notificacions RT
-3. IA avançada — Multi-turn, cerca web, clima, pressupost
-4. Producció — Stripe, Kubernetes, CDN, auditoria RGPD completa
+1. ✅ MVP — Auth, CRUD viatges, IA itineraris, feed, valoracions, RGPD complet
+   - Branca: main (commit 344df2f)
+   - Totes les vistes implementades, V1–V22 Flyway, cap stub pendent
+2. 🔄 Social — Follows llistes, feed personalitzat, comentaris, notificacions RT
+   - Branca activa: `feat/fase-2-social`
+   - Pendent: GET /followers|/following, comentaris, WebSocket notif, feed by follows
+3. ⬜ IA avançada — Multi-turn, cerca web, clima, pressupost
+4. ⬜ Producció — Docker multi-stage, HTTPS, CI/CD, auditoria RGPD completa
