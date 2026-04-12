@@ -1,14 +1,28 @@
 <script setup>
-import { onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useTrips } from '@/composables/useTrips'
 import { useAuthStore } from '@/stores/auth'
 import TripCard from '@/components/trip/TripCard.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
-const { store, publicTrips, fetchPublicTrips } = useTrips()
+const { store, publicTrips, fetchPublicTrips, pagination } = useTrips()
 const auth = useAuthStore()
 
-onMounted(() => fetchPublicTrips({ page: 0, size: 18 }))
+const PAGE_SIZE = 12
+const loadingMore = ref(false)
+
+const hasMore = () => pagination.value.page + 1 < pagination.value.totalPages
+
+async function loadMore() {
+  loadingMore.value = true
+  try {
+    await fetchPublicTrips({ page: pagination.value.page + 1, size: PAGE_SIZE })
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+onMounted(() => fetchPublicTrips({ page: 0, size: PAGE_SIZE }))
 </script>
 
 <template>
@@ -70,6 +84,20 @@ onMounted(() => fetchPublicTrips({ page: 0, size: 18 }))
       <router-link to="/trips/new" class="text-indigo-600 text-sm font-medium hover:underline">
         Crea el teu primer viatge →
       </router-link>
+    </div>
+
+    <!-- Carregar més -->
+    <div v-if="publicTrips.length > 0 && hasMore()" class="flex justify-center mt-8">
+      <button
+        @click="loadMore"
+        :disabled="loadingMore || store.loading"
+        class="px-8 py-3 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium
+               hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors
+               flex items-center gap-2"
+      >
+        <LoadingSpinner v-if="loadingMore" size="sm" />
+        <span>{{ loadingMore ? 'Carregant...' : 'Carregar més viatges' }}</span>
+      </button>
     </div>
   </div>
 </template>

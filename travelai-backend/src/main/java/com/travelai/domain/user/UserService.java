@@ -23,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -43,6 +44,7 @@ public class UserService {
     private final TripService tripService;
     private final NotificationService notificationService;
     private final MinioClient minioClient;
+    private final PasswordEncoder passwordEncoder;
 
     private static final String AVATAR_BUCKET = "travelai-avatars";
     private static final long MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5MB
@@ -104,8 +106,10 @@ public class UserService {
      */
     @Transactional
     public UserProfileResponse updateMyProfile(User user, UpdateProfileRequest req) {
-        if (req.name() != null) user.setName(req.name());
-        if (req.bio()  != null) user.setBio(req.bio());
+        if (req.name()     != null) user.setName(req.name());
+        if (req.bio()      != null) user.setBio(req.bio());
+        if (req.password() != null && !req.password().isBlank())
+            user.setPasswordHash(passwordEncoder.encode(req.password()));
         userRepository.save(user);
         log.info("UserService: perfil actualitzat per a '{}'", user.getUsername());
         return getMyProfile(user);

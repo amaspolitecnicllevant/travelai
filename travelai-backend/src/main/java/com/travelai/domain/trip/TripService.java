@@ -31,10 +31,16 @@ public class TripService {
             .destination(request.destination())
             .startDate(request.startDate())
             .endDate(request.endDate())
-            .visibility(request.visibility()) // PRIVATE per defecte (Privacy by Default)
-            .status(TripStatus.DRAFT)
+            .arrivalTime(request.arrivalTime())
+            .departureTime(request.departureTime())
+            .arrivalLocation(request.arrivalLocation())
+            .accommodationAddress(request.accommodationAddress())
+            .preferredTransport(request.preferredTransport())
+            .visibility(request.visibility())
             .build();
-
+        if (request.tripTypes() != null) trip.setTripTypesList(request.tripTypes());
+        if (request.budget() != null)    trip.setBudget(request.budget());
+        if (request.budgetLevel() != null) trip.setBudgetLevel(request.budgetLevel());
         return toResponse(tripRepository.save(trip));
     }
 
@@ -43,14 +49,22 @@ public class TripService {
         Trip trip = findActiveOrThrow(tripId);
         assertOwner(trip, requester);
 
-        if (request.title() != null)        trip.setTitle(request.title());
-        if (request.description() != null)  trip.setDescription(request.description());
-        if (request.destination() != null)  trip.setDestination(request.destination());
-        if (request.startDate() != null)    trip.setStartDate(request.startDate());
-        if (request.endDate() != null)      trip.setEndDate(request.endDate());
-        if (request.visibility() != null)   trip.setVisibility(request.visibility());
-        if (request.status() != null)       trip.setStatus(request.status());
-        if (request.coverImageUrl() != null) trip.setCoverImageUrl(request.coverImageUrl());
+        if (request.title() != null)               trip.setTitle(request.title());
+        if (request.description() != null)         trip.setDescription(request.description());
+        if (request.destination() != null)         trip.setDestination(request.destination());
+        if (request.startDate() != null)           trip.setStartDate(request.startDate());
+        if (request.endDate() != null)             trip.setEndDate(request.endDate());
+        if (request.visibility() != null)          trip.setVisibility(request.visibility());
+        if (request.status() != null)              trip.setStatus(request.status());
+        if (request.coverImageUrl() != null)       trip.setCoverImageUrl(request.coverImageUrl());
+        if (request.arrivalTime() != null)         trip.setArrivalTime(request.arrivalTime());
+        if (request.departureTime() != null)       trip.setDepartureTime(request.departureTime());
+        if (request.arrivalLocation() != null)     trip.setArrivalLocation(request.arrivalLocation());
+        if (request.accommodationAddress() != null) trip.setAccommodationAddress(request.accommodationAddress());
+        if (request.preferredTransport() != null)  trip.setPreferredTransport(request.preferredTransport());
+        if (request.tripTypes() != null)           trip.setTripTypesList(request.tripTypes());
+        if (request.budget() != null)              trip.setBudget(request.budget());
+        if (request.budgetLevel() != null)         trip.setBudgetLevel(request.budgetLevel());
 
         return toResponse(tripRepository.save(trip));
     }
@@ -77,7 +91,7 @@ public class TripService {
     public TripResponse getTripById(UUID tripId, User requester) {
         Trip trip = findActiveOrThrow(tripId);
 
-        boolean isOwner = trip.getOwner().getId().equals(requester.getId());
+        boolean isOwner = requester != null && trip.getOwner().getId().equals(requester.getId());
         if (!isOwner && trip.getVisibility() == Visibility.PRIVATE) {
             throw new AccessDeniedException("No tens permisos per veure aquest viatge");
         }
@@ -118,10 +132,20 @@ public class TripService {
             .destination(original.getDestination())
             .startDate(original.getStartDate())
             .endDate(original.getEndDate())
+            .arrivalTime(original.getArrivalTime())
+            .departureTime(original.getDepartureTime())
+            .arrivalLocation(original.getArrivalLocation())
+            .accommodationAddress(original.getAccommodationAddress())
+            .preferredTransport(original.getPreferredTransport())
+            .budget(original.getBudget())
+            .budgetLevel(original.getBudgetLevel())
             .visibility(Visibility.PRIVATE)
             .status(TripStatus.DRAFT)
             .coverImageUrl(original.getCoverImageUrl())
             .build();
+        if (original.getTripTypes() != null && !original.getTripTypes().isEmpty()) {
+            copy.setTripTypesList(original.getTripTypes());
+        }
 
         return toResponse(tripRepository.save(copy));
     }
@@ -149,6 +173,10 @@ public class TripService {
 
     public TripResponse toResponse(Trip trip) {
         Double avg = ratingRepository.averageScoreByTrip(trip).orElse(null);
+        Integer durationDays = null;
+        if (trip.getStartDate() != null && trip.getEndDate() != null) {
+            durationDays = (int) trip.getStartDate().until(trip.getEndDate()).getDays() + 1;
+        }
         return new TripResponse(
             trip.getId(),
             trip.getTitle(),
@@ -156,6 +184,15 @@ public class TripService {
             trip.getDestination(),
             trip.getStartDate(),
             trip.getEndDate(),
+            trip.getArrivalTime(),
+            trip.getDepartureTime(),
+            trip.getArrivalLocation(),
+            trip.getAccommodationAddress(),
+            trip.getPreferredTransport(),
+            trip.getBudget(),
+            trip.getBudgetLevel(),
+            trip.getTripTypes(),
+            durationDays,
             trip.getVisibility(),
             trip.getStatus(),
             trip.getCoverImageUrl(),

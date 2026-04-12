@@ -14,7 +14,7 @@ onMounted(async () => {
     const { data } = await legalApi.getPrivacyPolicy()
     content.value   = data.content || data.body || data
     title.value     = data.title || 'Política de Privacitat'
-    updatedAt.value = data.updatedAt || data.updated_at || null
+    updatedAt.value = data.publishedAt || null
   } catch (e) {
     error.value = e.response?.status === 404
       ? 'Document no disponible.'

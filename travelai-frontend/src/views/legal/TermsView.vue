@@ -14,7 +14,7 @@ onMounted(async () => {
     const { data } = await legalApi.getTerms()
     content.value   = data.content || data.body || data
     title.value     = data.title || "Termes d'Ús"
-    updatedAt.value = data.updatedAt || data.updated_at || null
+    updatedAt.value = data.publishedAt || null
   } catch (e) {
     error.value = e.response?.status === 404
       ? 'Document no disponible.'

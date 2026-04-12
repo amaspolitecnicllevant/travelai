@@ -2,7 +2,6 @@
 import { ref, onMounted } from 'vue'
 import { legalApi } from '@/api/legal'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import api from '@/api'
 
 const loading   = ref(true)
 const content   = ref('')
@@ -12,11 +11,10 @@ const error     = ref(null)
 
 onMounted(async () => {
   try {
-    // L'API de legalApi no té getLegal, cridem directament
-    const { data } = await api.get('/legal/legal-notice')
+    const { data } = await legalApi.getLegalNotice()
     content.value   = data.content || data.body || data
     title.value     = data.title || 'Avís Legal'
-    updatedAt.value = data.updatedAt || data.updated_at || null
+    updatedAt.value = data.publishedAt || null
   } catch (e) {
     error.value = e.response?.status === 404
       ? 'Document no disponible.'

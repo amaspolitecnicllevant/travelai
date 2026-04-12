@@ -24,11 +24,13 @@ export function useTrips() {
 
   async function fetchPublicTrips(params = {}) {
     store.loading = true
+    const isFirstPage = (params.page ?? 0) === 0
     try {
       const { data } = await tripsApi.getFeed(params)
-      publicTrips.value = data.content || data
+      const items = data.content || data
+      publicTrips.value = isFirstPage ? items : [...publicTrips.value, ...items]
       if (data.totalPages !== undefined) {
-        pagination.value = { page: data.number, size: data.size,
+        pagination.value = { page: data.number ?? 0, size: data.size ?? items.length,
                              totalPages: data.totalPages, totalElements: data.totalElements }
       }
     } catch (e) { toast.error('Error carregant el feed') }

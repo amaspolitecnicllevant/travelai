@@ -2,11 +2,15 @@ package com.travelai.domain.ai.agents;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.travelai.domain.ai.AiException;
+import com.travelai.domain.ai.DayPlan;
+import com.travelai.domain.ai.ItineraryParser;
 import com.travelai.domain.ai.OllamaService;
 import com.travelai.domain.trip.Itinerary;
 import com.travelai.domain.trip.ItineraryRepository;
 import com.travelai.domain.trip.Trip;
 import com.travelai.shared.exception.ResourceNotFoundException;
+
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -22,17 +26,27 @@ import reactor.core.publisher.Flux;
 public class DayRefinerAgent {
 
     private final OllamaService ollamaService;
+    private final ItineraryParser itineraryParser;
     private final ItineraryRepository itineraryRepository;
     private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
-            Ets un expert en viatges. Modifica NOMÉS el dia %d del següent itinerari \
+            Ets un expert en viatges. Modifica NOMÉS el dia %d de l'itinerari \
             segons les instruccions de l'usuari.
+            IMPORTANT: Respon SEMPRE en el mateix idioma que l'usuari fa servir al seu missatge.
             NOMÉS respons amb JSON vàlid del dia modificat, sense text addicional, \
-            sense markdown, sense blocs de codi.
-            La resposta comença amb { i acaba amb }.
-            Format del dia: {"day": %d, "title": "...", "activities": \
-            [{"time": "09:00", "name": "...", "description": "...", "duration": "2h", "cost": 0}]}
+            sense markdown, sense blocs de codi. La resposta comença amb { i acaba amb }.
+            Format: {"day": %d, "title": "...", "activities": \
+            [{"time": "09:00", "endTime": "11:00", "name": "...", "description": "...", \
+            "location": "adreça real, ciutat", "cost": 0, "category": "CULTURE", \
+            "transportMode": "WALK", "travelTime": "10 min a peu"}]}
+            Regles que SEMPRE has de respectar:
+            - L'hora d'inici (time) de cada activitat = endTime anterior + travelTime.
+            - travelTime: temps real amb el mitjà de transport indicat.
+            - transportMode: WALK, PUBLIC, CAR o TAXI.
+            - category: CULTURE, FOOD, LEISURE, TRANSPORT, NATURE, SHOPPING, SPORT.
+            - Cada àpat en un restaurant DIFERENT, proper a la zona visitada.
+            - El dia ha de mantenir una ruta lògica geogràficament (sense salts innecessaris).
             """;
 
     /**
@@ -60,7 +74,14 @@ public class DayRefinerAgent {
 
         return ollamaService.streamChat(systemPrompt, fullUserPrompt)
                 .doOnNext(fullResponse::append)
-                .doOnComplete(() -> persistRefinedDay(existing, fullResponse.toString()))
+                .doOnComplete(() -> {
+                    try {
+                        persistRefinedDay(existing, fullResponse.toString(), dayNumber);
+                    } catch (Exception e) {
+                        log.error("Error persistint dia {} del trip {}: {}",
+                                dayNumber, trip.getId(), e.getMessage());
+                    }
+                })
                 .doOnError(e -> log.error("Error refinant dia {} del trip {}: {}",
                         dayNumber, trip.getId(), e.getMessage()));
     }
@@ -79,46 +100,32 @@ public class DayRefinerAgent {
                 """.formatted(dayNumber, existingContentJson, userPrompt);
     }
 
-    private void persistRefinedDay(Itinerary itinerary, String refinedJson) {
-        try {
-            // Attempt to extract the activities array from the AI response JSON.
-            // The AI may return the full day object {"day":N,"title":"...","activities":[...]}
-            // or just the activities array. We store only activities in contentJson.
-            String activitiesJson = extractActivities(refinedJson);
+    private void persistRefinedDay(Itinerary itinerary, String refinedJson, int dayNumber) {
+        // Use ItineraryParser for robust JSON cleaning, repair and field extraction
+        List<DayPlan> plans = itineraryParser.parse(refinedJson);
+        DayPlan plan = plans.isEmpty() ? null : plans.get(0);
 
-            itinerary.setContentJson(activitiesJson);
+        String title = (plan != null && plan.title() != null)
+                ? plan.title()
+                : "Dia " + dayNumber;
+        var activities = (plan != null && plan.activities() != null)
+                ? plan.activities()
+                : java.util.List.of();
+
+        // Store as {title, activities} — same format as ItineraryAgent
+        try {
+            String contentJson = objectMapper.writeValueAsString(
+                    java.util.Map.of("title", title, "activities", activities));
+            itinerary.setContentJson(contentJson);
             itinerary.setGeneratedByAi(true);
             itinerary.setVersion(itinerary.getVersion() + 1);
-
             itineraryRepository.save(itinerary);
             log.info("DayRefinerAgent: dia {} actualitzat per trip {}",
                     itinerary.getDayNumber(), itinerary.getTrip().getId());
         } catch (Exception e) {
-            log.error("DayRefinerAgent: error persistint dia {} per trip {}: {}",
+            log.error("DayRefinerAgent: error serialitzant dia {} per trip {}: {}",
                     itinerary.getDayNumber(), itinerary.getTrip().getId(), e.getMessage());
             throw new AiException("Error desant el dia refinat: " + e.getMessage());
-        }
-    }
-
-    /**
-     * Intenta extreure l'array d'activitats del JSON retornat per la IA.
-     * Si el JSON és un objecte dia complet, en extreu el camp "activities".
-     * Si ja és un array, el retorna directament.
-     */
-    private String extractActivities(String rawJson) {
-        try {
-            var node = objectMapper.readTree(rawJson);
-            if (node.has("activities")) {
-                return objectMapper.writeValueAsString(node.get("activities"));
-            }
-            if (node.isArray()) {
-                return rawJson.strip();
-            }
-            // Fallback: store as-is and let downstream parsing handle it
-            return rawJson.strip();
-        } catch (Exception e) {
-            log.warn("DayRefinerAgent: no s'ha pogut parsejar el JSON refinat, guardant raw: {}", e.getMessage());
-            return rawJson.strip();
         }
     }
 }

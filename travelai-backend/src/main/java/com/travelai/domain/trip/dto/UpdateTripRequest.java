@@ -5,6 +5,7 @@ import com.travelai.domain.trip.Visibility;
 import jakarta.validation.constraints.Size;
 
 import java.time.LocalDate;
+import java.util.List;
 
 public record UpdateTripRequest(
     @Size(max = 200) String title,
@@ -14,5 +15,13 @@ public record UpdateTripRequest(
     LocalDate endDate,
     Visibility visibility,
     TripStatus status,
-    String coverImageUrl
+    String coverImageUrl,
+    String arrivalTime,
+    String departureTime,
+    String arrivalLocation,
+    String accommodationAddress,
+    String preferredTransport,
+    List<String> tripTypes,
+    String budget,
+    String budgetLevel
 ) {}

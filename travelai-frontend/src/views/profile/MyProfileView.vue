@@ -50,7 +50,7 @@ async function fetchTrips() {
 }
 
 // ── Settings form ─────────────────────────────────────────────────────────────
-const settingsForm    = ref({ name: auth.user?.name || '', password: '', passwordConfirm: '' })
+const settingsForm    = ref({ name: auth.user?.name || '', bio: auth.user?.bio || '', password: '', passwordConfirm: '' })
 const settingsLoading = ref(false)
 const settingsError   = ref(null)
 const settingsSuccess = ref(false)
@@ -66,7 +66,10 @@ async function saveSettings() {
 
   settingsLoading.value = true
   try {
-    const payload = { name: settingsForm.value.name }
+    const payload = {
+      name: settingsForm.value.name,
+      bio:  settingsForm.value.bio || null,
+    }
     if (settingsForm.value.password) payload.password = settingsForm.value.password
     await usersApi.updateMe(payload)
     await auth.fetchMe()
@@ -225,7 +228,13 @@ onMounted(fetchTrips)
         </div>
 
         <div v-else class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <TripCard v-for="trip in trips" :key="trip.id" :trip="trip" />
+          <TripCard
+            v-for="trip in trips"
+            :key="trip.id"
+            :trip="trip"
+            @deleted="(id) => trips = trips.filter(t => t.id !== id)"
+            @duplicated="(t) => trips.unshift(t)"
+          />
         </div>
       </div>
 
@@ -309,6 +318,16 @@ onMounted(fetchTrips)
               type="text"
               class="input w-full"
               placeholder="El teu nom"
+            />
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Biografia</label>
+            <textarea
+              v-model="settingsForm.bio"
+              rows="3"
+              class="input w-full resize-none"
+              placeholder="Explica una mica qui ets, els teus viatges preferits..."
             />
           </div>
 

@@ -9,25 +9,48 @@ const { createTrip, store } = useTrips()
 
 // ── Form state ───────────────────────────────────────────────────────────────
 const form = ref({
-  title:       '',
-  destination: '',
-  tripType:    '',
-  budget:      '',
-  budgetLevel: '',
-  startDate:   '',
-  endDate:     '',
-  visibility:  'PRIVATE',
-  description: '',
+  title:              '',
+  destination:        '',
+  tripTypes:          [],
+  budget:             '',
+  budgetLevel:        '',
+  startDate:          '',
+  endDate:            '',
+  arrivalTime:          '',
+  departureTime:        '',
+  arrivalLocation:      '',
+  accommodationAddress: '',
+  preferredTransport:   '',
+  visibility:         'PRIVATE',
+  description:        '',
 })
+
+function toggleTripType(id) {
+  const idx = form.value.tripTypes.indexOf(id)
+  if (idx !== -1) {
+    form.value.tripTypes.splice(idx, 1)
+  } else if (form.value.tripTypes.length < 2) {
+    form.value.tripTypes.push(id)
+  }
+}
+
+const transports = [
+  { id: 'WALK',   label: 'A peu',            icon: '🚶' },
+  { id: 'PUBLIC', label: 'Transport públic', icon: '🚌' },
+  { id: 'CAR',    label: 'Cotxe',            icon: '🚗' },
+  { id: 'TAXI',   label: 'Taxi',             icon: '🚕' },
+]
 
 // ── Trip types ────────────────────────────────────────────────────────────────
 const tripTypes = [
-  { id: 'CULTURAL',    label: 'Cultural',    icon: '🏛️' },
-  { id: 'ADVENTURE',   label: 'Aventura',    icon: '🏔️' },
-  { id: 'RELAX',       label: 'Relax',       icon: '🏖️' },
-  { id: 'GASTRONOMY',  label: 'Gastronomia', icon: '🍜' },
-  { id: 'NATURE',      label: 'Naturalesa',  icon: '🌿' },
-  { id: 'CITY',        label: 'Ciutat',      icon: '🏙️' },
+  { id: 'CULTURAL',   label: 'Cultural',    icon: '🏛️' },
+  { id: 'ADVENTURE',  label: 'Aventura',    icon: '🏔️' },
+  { id: 'RELAX',      label: 'Relax',       icon: '🏖️' },
+  { id: 'GASTRONOMY', label: 'Gastronomia', icon: '🍜' },
+  { id: 'NATURE',     label: 'Naturalesa',  icon: '🌿' },
+  { id: 'CITY',       label: 'Ciutat',      icon: '🏙️' },
+  { id: 'FAMILY',     label: 'Familiar',    icon: '👨‍👩‍👧‍👦' },
+  { id: 'ROMANTIC',   label: 'Romàntic',    icon: '💑' },
 ]
 
 // ── Budget levels ─────────────────────────────────────────────────────────────
@@ -60,14 +83,19 @@ async function submit() {
   const payload = {
     title:       form.value.title,
     destination: form.value.destination,
-    days:        calculatedDays.value ?? 3,
-    budget:      form.value.budget ? Number(form.value.budget) : null,
-    budgetLevel: form.value.budgetLevel || null,
-    tripType:    form.value.tripType   || null,
-    startDate:   form.value.startDate  || null,
-    endDate:     form.value.endDate    || null,
-    visibility:  form.value.visibility,
-    description: form.value.description,
+    days:               calculatedDays.value ?? 3,
+    budget:             form.value.budget ? String(form.value.budget) : null,
+    budgetLevel:        form.value.budgetLevel        || null,
+    tripTypes:          form.value.tripTypes.length ? form.value.tripTypes : null,
+    startDate:          form.value.startDate          || null,
+    endDate:            form.value.endDate            || null,
+    arrivalTime:          form.value.arrivalTime          || null,
+    departureTime:        form.value.departureTime        || null,
+    arrivalLocation:      form.value.arrivalLocation      || null,
+    accommodationAddress: form.value.accommodationAddress || null,
+    preferredTransport:   form.value.preferredTransport   || null,
+    visibility:         form.value.visibility,
+    description:        form.value.description,
   }
   const trip = await createTrip(payload)
   if (trip) router.push({ name: 'trip-planner', params: { id: trip.id } })
@@ -131,6 +159,55 @@ async function submit() {
                      focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
           </div>
 
+          <!-- Hora d'arribada i sortida -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Hora d'arribada al destí
+              <span class="text-gray-400 font-normal">(primer dia)</span>
+            </label>
+            <input v-model="form.arrivalTime" type="time"
+              class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
+            <p class="text-xs text-gray-400 mt-1">El primer dia s'organitzarà a partir d'aquesta hora</p>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Hora de sortida del destí
+              <span class="text-gray-400 font-normal">(últim dia)</span>
+            </label>
+            <input v-model="form.departureTime" type="time"
+              class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                     focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
+            <p class="text-xs text-gray-400 mt-1">L'últim dia s'organitzarà fins a aquesta hora</p>
+          </div>
+
+          <!-- Punt d'arribada -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Punt d'arribada</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">✈️</span>
+              <input v-model="form.arrivalLocation" type="text"
+                placeholder="Ex: Aeroport El Prat T1, Estació Sants, Port de Barcelona..."
+                class="w-full border border-gray-300 rounded-lg pl-9 pr-4 py-2.5 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">Aeroport, port, estació de tren o autobús</p>
+          </div>
+
+          <!-- Allotjament -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Adreça de l'allotjament</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-base">🏨</span>
+              <input v-model="form.accommodationAddress" type="text"
+                placeholder="Ex: Hotel Arts, Carrer de la Marina 19-21, Barcelona"
+                class="w-full border border-gray-300 rounded-lg pl-9 pr-4 py-2.5 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">L'IA planificarà primer anar a deixar les maletes</p>
+          </div>
+
           <!-- Days preview -->
           <div v-if="calculatedDays !== null" class="md:col-span-2">
             <div class="flex items-center gap-2 bg-indigo-50 text-indigo-700 rounded-lg px-4 py-2.5 text-sm font-medium">
@@ -150,27 +227,62 @@ async function submit() {
         </div>
       </div>
 
+      <!-- ── Mitjà de transport preferit ─────────────────────────────── -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+        <h2 class="text-base font-semibold text-gray-800 mb-1">Mitjà de transport preferit</h2>
+        <p class="text-xs text-gray-400 mb-4">Per desplaçar-se entre els llocs del viatge</p>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <button
+            v-for="t in transports"
+            :key="t.id"
+            type="button"
+            @click="form.preferredTransport = form.preferredTransport === t.id ? '' : t.id"
+            class="flex flex-col items-center gap-2 rounded-xl py-4 px-2 border-2 transition-all"
+            :class="form.preferredTransport === t.id
+              ? 'border-indigo-500 bg-indigo-50'
+              : 'border-gray-100 bg-gray-50 hover:border-gray-300'"
+          >
+            <span class="text-2xl">{{ t.icon }}</span>
+            <span class="text-xs font-medium text-center"
+                  :class="form.preferredTransport === t.id ? 'text-indigo-700' : 'text-gray-600'">
+              {{ t.label }}
+            </span>
+          </button>
+        </div>
+      </div>
+
       <!-- ── Tipus de viatge ───────────────────────────────────────────── -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-        <h2 class="text-base font-semibold text-gray-800 mb-5">Tipus de viatge</h2>
-        <div class="grid grid-cols-3 sm:grid-cols-6 gap-3">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-base font-semibold text-gray-800">Tipus de viatge</h2>
+          <span class="text-xs text-gray-400">Selecciona fins a 2</span>
+        </div>
+        <div class="grid grid-cols-4 sm:grid-cols-8 gap-3">
           <button
             v-for="type in tripTypes"
             :key="type.id"
             type="button"
-            @click="form.tripType = form.tripType === type.id ? '' : type.id"
+            :disabled="!form.tripTypes.includes(type.id) && form.tripTypes.length >= 2"
+            @click="toggleTripType(type.id)"
             class="flex flex-col items-center gap-2 rounded-xl py-4 px-2 border-2 transition-all"
-            :class="form.tripType === type.id
-              ? 'border-indigo-500 bg-indigo-50'
-              : 'border-gray-100 bg-gray-50 hover:border-gray-300'"
+            :class="[
+              form.tripTypes.includes(type.id)
+                ? 'border-indigo-500 bg-indigo-50'
+                : (!form.tripTypes.includes(type.id) && form.tripTypes.length >= 2)
+                  ? 'border-gray-100 bg-gray-50 opacity-40 cursor-not-allowed'
+                  : 'border-gray-100 bg-gray-50 hover:border-gray-300'
+            ]"
           >
             <span class="text-2xl">{{ type.icon }}</span>
-            <span class="text-xs font-medium"
-                  :class="form.tripType === type.id ? 'text-indigo-700' : 'text-gray-600'">
+            <span class="text-xs font-medium text-center leading-tight"
+                  :class="form.tripTypes.includes(type.id) ? 'text-indigo-700' : 'text-gray-600'">
               {{ type.label }}
             </span>
           </button>
         </div>
+        <p v-if="form.tripTypes.length === 2" class="text-xs text-indigo-600 mt-3">
+          ✓ {{ form.tripTypes.map(id => tripTypes.find(t => t.id === id)?.label).join(' + ') }}
+        </p>
       </div>
 
       <!-- ── Nivell de pressupost ──────────────────────────────────────── -->

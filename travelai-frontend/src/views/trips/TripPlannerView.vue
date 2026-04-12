@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { tripsApi } from '@/api/trips'
 import { useAiStream } from '@/composables/useAiStream'
 import { useItineraryStore } from '@/stores/itinerary'
+import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ItineraryDay from '@/components/trip/ItineraryDay.vue'
 import AiChatBox from '@/components/ai/AiChatBox.vue'
@@ -11,12 +12,21 @@ import AiChatBox from '@/components/ai/AiChatBox.vue'
 const route  = useRoute()
 const router = useRouter()
 const itineraryStore = useItineraryStore()
-
-const { streaming, progress, rawBuffer, days, error: streamError, generate, refineDay, cancel } = useAiStream()
+const authStore      = useAuthStore()
 
 const trip        = ref(null)
+
+const isOwner = computed(() =>
+  !!(trip.value && authStore.user && trip.value.ownerUsername === authStore.user.username)
+)
+
+const { streaming, progress, rawBuffer, days, error: streamError, generate, refineDay, cancel,
+        budgetStreaming, budgetRaw, budgetError, budgetResult, estimateBudget } = useAiStream()
 const loadingTrip = ref(true)
 const tripError   = ref(null)
+
+// Panel de pressupost
+const showBudgetModal = ref(false)
 
 // Panel de refinament
 const refinePanel     = ref(false)
@@ -67,6 +77,16 @@ function closeRefinePanel() {
 async function handleRefineDone() {
   closeRefinePanel()
   await itineraryStore.fetchItinerary(route.params.id)
+}
+
+async function handleSaveActivity({ dayNumber, index, activity }) {
+  const day = itineraryStore.currentItinerary?.days?.find(d => d.dayNumber === dayNumber)
+  if (!day) return
+  // update activity in local state
+  const activities = [...day.activities]
+  activities[index] = activity
+  const updatedDay = { ...day, activities }
+  await itineraryStore.updateDay(route.params.id, dayNumber, updatedDay)
 }
 
 function formatDate(dateStr) {
@@ -150,6 +170,19 @@ function formatDate(dateStr) {
               Cancel·lar generació
             </button>
 
+            <!-- Botó estimar pressupost -->
+            <button
+              v-if="hasItinerary && !streaming"
+              :disabled="budgetStreaming"
+              class="w-full mt-3 border border-indigo-300 text-indigo-600 font-medium py-2.5 px-4 rounded-xl
+                     hover:bg-indigo-50 disabled:opacity-50 disabled:cursor-not-allowed
+                     transition-colors flex items-center justify-center gap-2 text-sm"
+              @click="estimateBudget(route.params.id); showBudgetModal = true"
+            >
+              <LoadingSpinner v-if="budgetStreaming" size="sm" />
+              <span>{{ budgetStreaming ? 'Estimant...' : '💰 Estimar pressupost' }}</span>
+            </button>
+
             <!-- Barra de progrés / estat -->
             <div v-if="streaming || progress" class="mt-4">
               <div v-if="streaming" class="flex items-center gap-2 mb-2">
@@ -219,7 +252,9 @@ function formatDate(dateStr) {
               :key="day.dayNumber"
               :day="day"
               :streaming="streaming"
+              :is-owner="isOwner"
               @refine="openRefinePanel"
+              @save-activity="handleSaveActivity"
             />
           </div>
 
@@ -249,6 +284,81 @@ function formatDate(dateStr) {
 
       </div>
     </div>
+
+    <!-- Modal pressupost ─────────────────────────────────────────────────── -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showBudgetModal" class="fixed inset-0 z-50 flex items-center justify-center">
+          <div class="absolute inset-0 bg-black/50" @click="showBudgetModal = false"></div>
+          <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col">
+            <!-- Header -->
+            <div class="flex items-center justify-between p-5 border-b border-gray-100">
+              <div>
+                <h3 class="font-semibold text-gray-900">💰 Estimació de pressupost</h3>
+                <p class="text-xs text-gray-500 mt-0.5">Anàlisi IA de costos per a {{ trip?.destination }}</p>
+              </div>
+              <button @click="showBudgetModal = false"
+                class="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto p-5">
+
+              <!-- Loading -->
+              <div v-if="budgetStreaming" class="flex flex-col items-center py-8 gap-3">
+                <LoadingSpinner size="lg" />
+                <p class="text-sm text-gray-500">L'IA està analitzant els costos...</p>
+              </div>
+
+              <!-- Error -->
+              <div v-else-if="budgetError" class="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 text-sm">
+                {{ budgetError }}
+              </div>
+
+              <!-- Parsed JSON result -->
+              <template v-else-if="budgetResult">
+                <div class="bg-indigo-50 rounded-xl p-4 mb-4 text-center">
+                  <p class="text-3xl font-bold text-indigo-700">
+                    {{ budgetResult.totalEstimate?.toLocaleString('ca-ES') }} {{ budgetResult.currency || 'EUR' }}
+                  </p>
+                  <p class="text-sm text-indigo-500 mt-1">Estimació total del viatge</p>
+                </div>
+
+                <div v-if="budgetResult.days?.length" class="space-y-2">
+                  <h4 class="text-sm font-semibold text-gray-700 mb-3">Desglose per dia:</h4>
+                  <div v-for="d in budgetResult.days" :key="d.day"
+                    class="bg-gray-50 rounded-xl p-3">
+                    <div class="flex items-center justify-between mb-2">
+                      <span class="text-sm font-medium text-gray-800">Dia {{ d.day }}</span>
+                      <span class="text-sm font-bold text-gray-900">{{ d.subtotal?.toLocaleString('ca-ES') }} €</span>
+                    </div>
+                    <div v-if="d.breakdown" class="grid grid-cols-2 gap-1 text-xs text-gray-500">
+                      <span v-if="d.breakdown.accommodation">🏨 Allotjament: {{ d.breakdown.accommodation }}€</span>
+                      <span v-if="d.breakdown.food">🍽️ Menjar: {{ d.breakdown.food }}€</span>
+                      <span v-if="d.breakdown.transport">🚌 Transport: {{ d.breakdown.transport }}€</span>
+                      <span v-if="d.breakdown.activities">🎭 Activitats: {{ d.breakdown.activities }}€</span>
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <!-- Raw text (model didn't return valid JSON) -->
+              <div v-else-if="budgetRaw" class="prose prose-sm max-w-none">
+                <pre class="text-sm text-gray-700 whitespace-pre-wrap bg-gray-50 rounded-xl p-4">{{ budgetRaw }}</pre>
+              </div>
+
+              <div v-else class="text-center py-8 text-gray-400 text-sm">
+                Fes clic a "Estimar pressupost" per analitzar els costos del viatge.
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- Panel lateral de refinament (overlay dret) -->
     <Transition name="slide-right">

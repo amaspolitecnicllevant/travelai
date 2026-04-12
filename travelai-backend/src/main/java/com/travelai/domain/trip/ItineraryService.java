@@ -52,13 +52,33 @@ public class ItineraryService {
     public List<ItineraryResponse> getItinerary(UUID tripId, User requester) {
         Trip trip = tripService.findActiveOrThrow(tripId);
 
-        boolean isOwner = trip.getOwner().getId().equals(requester.getId());
+        boolean isOwner = requester != null && trip.getOwner().getId().equals(requester.getId());
         if (!isOwner && trip.getVisibility() == Visibility.PRIVATE) {
             throw new AccessDeniedException("No tens permisos per veure l'itinerari d'aquest viatge");
         }
 
         return itineraryRepository.findByTripOrderByDayNumber(trip)
             .stream().map(this::toResponse).toList();
+    }
+
+    @Transactional
+    public ItineraryResponse updateDayManual(UUID tripId, Integer dayNumber,
+                                              com.travelai.domain.trip.dto.UpdateItineraryDayRequest request,
+                                              User requester) {
+        Trip trip = tripService.findActiveOrThrow(tripId);
+        assertOwner(trip, requester);
+
+        try {
+            String contentJson = objectMapper.writeValueAsString(
+                java.util.Map.of(
+                    "title", request.title() != null ? request.title() : "Dia " + dayNumber,
+                    "activities", request.activities() != null ? request.activities() : java.util.List.of()
+                )
+            );
+            return saveItinerary(tripId, dayNumber, contentJson, false, requester);
+        } catch (Exception e) {
+            throw new com.travelai.domain.ai.AiException("Error desant l'itinerari manual: " + e.getMessage());
+        }
     }
 
     @Transactional

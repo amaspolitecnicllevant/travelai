@@ -27,7 +27,7 @@ const trips        = ref([])
 const stats        = ref(null)
 const loading      = ref(false)
 const error        = ref(null)
-const following    = ref(false)  // placeholder — Social phase 2
+const following    = ref(false)
 const followLoading = ref(false)
 
 const initials = computed(() => {
@@ -55,6 +55,7 @@ async function fetchProfile() {
       usersApi.getTrips(username.value),
     ])
     profile.value = profileRes.data
+    following.value = profileRes.data.isFollowing || false
 
     // Try stats (non-critical)
     try {
@@ -75,7 +76,7 @@ async function fetchProfile() {
   }
 }
 
-// ── Follow / unfollow (placeholder visual — fase 2) ──────────────────────────
+// ── Follow / unfollow ────────────────────────────────────────────────────────
 async function toggleFollow() {
   if (!auth.isLoggedIn) { router.push({ name: 'login' }); return }
   followLoading.value = true
@@ -87,7 +88,7 @@ async function toggleFollow() {
       await usersApi.follow(username.value)
       following.value = true
     }
-  } catch { /* ignore — social phase 2 */ }
+  } catch { /* silently ignore */ }
   finally { followLoading.value = false }
 }
 

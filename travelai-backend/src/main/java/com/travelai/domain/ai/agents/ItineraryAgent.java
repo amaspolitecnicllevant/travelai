@@ -31,13 +31,20 @@ public class ItineraryAgent {
     private final ObjectMapper objectMapper;
 
     private static final String SYSTEM_PROMPT = """
-            Ets un planificador de viatges expert.
-            NOMÉS respons amb JSON vàlid, sense text addicional, sense markdown, \
-            sense blocs de codi. La resposta comença amb { i acaba amb }.
-            Genera un itinerari detallat en JSON per a %s durant %d dies.
-            Formato: {"days": [{"day": 1, "title": "...", "activities": \
-            [{"time": "09:00", "name": "...", "description": "...", "duration": "2h", "cost": 0}]}]}
-            Inclou almenys 3 activitats per dia. Les hores en format HH:mm.
+            You are an expert travel planner. IMPORTANT: Always respond in the same language the user uses.
+            Respond ONLY with valid JSON, no markdown, no code blocks, no explanations.
+            Generate a %d-day itinerary for %s. Output ALL %d days without stopping early.
+            Each day format: {"day":N,"title":"...","activities":[...]}
+            Output all days as separate JSON objects one after another.
+            Activity format: {"time":"HH:mm","endTime":"HH:mm","name":"...","description":"...","location":"address, city","cost":0,"category":"CULTURE","transportMode":"WALK","travelTime":"10 min"}
+            Rules:
+            - time of each activity = endTime of previous + travelTime (mathematically consistent)
+            - transportMode: WALK, PUBLIC, CAR or TAXI
+            - category: CULTURE, FOOD, LEISURE, TRANSPORT, NATURE, SHOPPING, SPORT
+            - MEALS: breakfast 08-10h ("Breakfast at X"), lunch 13-15h ("Lunch at X"), dinner 20-22h ("Dinner at X"). Different restaurant each meal, near current area.
+            - DAY 1: activity 1 = arrival at arrival point (TRANSPORT), activity 2 = transfer to accommodation (TRANSPORT), then tourist activities after arrival time only.
+            - MIDDLE DAYS: start and end at accommodation.
+            - LAST DAY: activities until departure time minus travel time minus 30min margin. Second-to-last activity = transfer to departure point (TRANSPORT). Last activity = departure from [point] (TRANSPORT).
             """;
 
     /**
@@ -57,7 +64,13 @@ public class ItineraryAgent {
 
         return ollamaService.streamChat(systemPrompt, userPrompt)
                 .doOnNext(fullResponse::append)
-                .doOnComplete(() -> persistItinerary(trip, fullResponse.toString(), days))
+                .doOnComplete(() -> {
+                    try {
+                        persistItinerary(trip, fullResponse.toString(), days);
+                    } catch (Exception e) {
+                        log.error("Error persistint itinerari per trip {}: {}", trip.getId(), e.getMessage());
+                    }
+                })
                 .doOnError(e -> log.error("Error generant itinerari per trip {}: {}", trip.getId(), e.getMessage()));
     }
 
@@ -72,14 +85,68 @@ public class ItineraryAgent {
     }
 
     private String buildUserPrompt(Trip trip) {
+        int days = computeDays(trip);
         StringBuilder sb = new StringBuilder();
         sb.append("Destino: ").append(trip.getDestination()).append("\n");
-        sb.append("Duración: ").append(computeDays(trip)).append(" días\n");
+        sb.append("Duración: ").append(days).append(" días\n");
         if (trip.getDescription() != null && !trip.getDescription().isBlank()) {
             sb.append("Descripción del viaje: ").append(trip.getDescription()).append("\n");
         }
         if (trip.getStartDate() != null) {
             sb.append("Fecha de inicio: ").append(trip.getStartDate()).append("\n");
+        }
+        if (trip.getArrivalLocation() != null && !trip.getArrivalLocation().isBlank()) {
+            sb.append("Punto de llegada/salida del destino (aeropuerto, estación, etc.): ")
+              .append(trip.getArrivalLocation()).append("\n");
+        }
+        if (trip.getAccommodationAddress() != null && !trip.getAccommodationAddress().isBlank()) {
+            sb.append("Dirección del alojamiento: ").append(trip.getAccommodationAddress())
+              .append(" — el día 1, PRIMERO ir al alojamiento a dejar el equipaje, ")
+              .append("y DESPUÉS comenzar las actividades.\n");
+        }
+        if (trip.getArrivalTime() != null && !trip.getArrivalTime().isBlank()) {
+            sb.append("HORA DE LLEGADA al destino (día 1): ").append(trip.getArrivalTime())
+              .append(" — OBLIGATORIO: la primera actividad del día 1 empieza exactamente a las ")
+              .append(trip.getArrivalTime())
+              .append(". NO planifiques NINGUNA actividad antes de esta hora.\n");
+        } else {
+            sb.append("No se ha indicado hora de llegada — asume llegada a las 10:00 del día 1.\n");
+        }
+        if (trip.getDepartureTime() != null && !trip.getDepartureTime().isBlank()) {
+            sb.append("Hora de salida del destino (día ").append(days).append("): ")
+              .append(trip.getDepartureTime())
+              .append(" — el último día, la ÚLTIMA actividad debe ser el trayecto de vuelta ")
+              .append("(hacia el aeropuerto, estación o inicio del viaje en coche), ")
+              .append("calculando el tiempo necesario para llegar con margen antes de las ")
+              .append(trip.getDepartureTime()).append(".\n");
+        } else {
+            sb.append("El último día no tiene hora de salida fija, pero debe terminar con ")
+              .append("la actividad 'Regreso a casa' o 'Salida hacia el punto de partida'.\n");
+        }
+        if (trip.getPreferredTransport() != null && !trip.getPreferredTransport().isBlank()) {
+            sb.append("Medio de transporte preferido entre actividades: ")
+              .append(trip.getPreferredTransport()).append("\n");
+        }
+        if (trip.getTripTypes() != null && !trip.getTripTypes().isEmpty()) {
+            sb.append("Tipo de viaje: ").append(String.join(", ", trip.getTripTypes())).append("\n");
+        }
+        if (trip.getBudget() != null && !trip.getBudget().isBlank()) {
+            sb.append("Presupuesto total del viaje: ").append(trip.getBudget()).append("€");
+            int d = computeDays(trip);
+            try {
+                double perDay = Double.parseDouble(trip.getBudget()) / Math.max(1, d);
+                sb.append(String.format(" (aprox. %.0f€/día)", perDay));
+            } catch (NumberFormatException ignored) {}
+            sb.append("\n");
+        }
+        if (trip.getBudgetLevel() != null && !trip.getBudgetLevel().isBlank()) {
+            String label = switch (trip.getBudgetLevel()) {
+                case "BUDGET"  -> "Econòmic — hostels, menjar local, transport públic";
+                case "COMFORT" -> "Confortable — hotels 3*, restaurants equilibrats";
+                case "LUXURY"  -> "Premium — hotels 4-5*, restaurants gastronomics";
+                default        -> trip.getBudgetLevel();
+            };
+            sb.append("Nivel de presupuesto: ").append(label).append("\n");
         }
         sb.append("Genera el itinerari complet en JSON.");
         return sb.toString();
@@ -87,6 +154,11 @@ public class ItineraryAgent {
 
     private void persistItinerary(Trip trip, String fullJson, int days) {
         try {
+            int len = fullJson.length();
+            log.info("ItineraryAgent: parsejant resposta de {} chars. Inici: [{}] Fi: [{}]",
+                len,
+                fullJson.substring(0, Math.min(120, len)).replace("\n", "\\n"),
+                fullJson.substring(Math.max(0, len - 80)).replace("\n", "\\n"));
             List<DayPlan> dayPlans = itineraryParser.parse(fullJson);
             LocalDate baseDate = trip.getStartDate() != null ? trip.getStartDate() : LocalDate.now();
 

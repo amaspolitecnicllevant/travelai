@@ -43,7 +43,10 @@ public class OllamaService {
     private Prompt buildPrompt(String system, String user) {
         return new Prompt(
             List.of(new SystemMessage(system), new UserMessage(user)),
-            OllamaOptions.builder().temperature(0.7).build()
+            OllamaOptions.builder()
+                .temperature(0.7)
+                .numCtx(8192)    // Enough for 8 days (~4000 tokens output) without OOM
+                .build()
         );
     }
 }

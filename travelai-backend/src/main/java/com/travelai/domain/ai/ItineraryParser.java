@@ -21,8 +21,8 @@ public class ItineraryParser {
         try {
             String clean = cleanJson(json);
             JsonNode root = parseOrRepair(clean);
-            JsonNode daysNode = root.has("days") ? root.get("days") : root;
-            if (!daysNode.isArray()) {
+            JsonNode daysNode = findDaysNode(root);
+            if (daysNode == null || !daysNode.isArray()) {
                 throw new AiException("S'esperava un array de dies");
             }
             List<DayPlan> result = new ArrayList<>();
@@ -45,6 +45,44 @@ public class ItineraryParser {
 
     // ── helpers ──────────────────────────────────────────────────────────────
 
+    /**
+     * Tries multiple common JSON structures that models may output.
+     * Returns the first JsonNode that is an array of day objects, or null.
+     */
+    private JsonNode findDaysNode(JsonNode root) {
+        // 1. Root is already an array
+        if (root.isArray()) return root;
+        // 2. root.days
+        if (root.has("days") && root.get("days").isArray()) return root.get("days");
+        // 3. root.itinerary (array or object with days)
+        JsonNode itin = root.get("itinerary");
+        if (itin != null) {
+            if (itin.isArray()) return itin;
+            if (itin.isObject() && itin.has("days") && itin.get("days").isArray()) return itin.get("days");
+        }
+        // 4. root.plan / root.schedule / root.agenda
+        for (String key : new String[]{"plan", "schedule", "agenda", "trips", "viaje", "viatge"}) {
+            JsonNode n = root.get(key);
+            if (n != null && n.isArray()) return n;
+            if (n != null && n.isObject() && n.has("days") && n.get("days").isArray()) return n.get("days");
+        }
+        // 5. Single-day object: wrap in list
+        if (root.has("activities") || root.has("actividades")) {
+            com.fasterxml.jackson.databind.node.ArrayNode arr =
+                objectMapper.createArrayNode();
+            arr.add(root);
+            return arr;
+        }
+        // 6. Scan all array-valued fields
+        root.fields().forEachRemaining(entry -> {});
+        java.util.Iterator<java.util.Map.Entry<String, JsonNode>> fields = root.fields();
+        while (fields.hasNext()) {
+            JsonNode val = fields.next().getValue();
+            if (val.isArray() && val.size() > 0 && val.get(0).isObject()) return val;
+        }
+        return null;
+    }
+
     private JsonNode parseOrRepair(String s) {
         try {
             return objectMapper.readTree(s);
@@ -55,8 +93,8 @@ public class ItineraryParser {
     }
 
     private JsonNode tryRepair(String s) {
-        // Count unmatched braces/brackets and close them
-        int opens = 0, closes = 0, arrOpens = 0, arrCloses = 0;
+        // Use a stack to track open brackets in order, so we close them in LIFO order
+        java.util.Deque<Character> stack = new java.util.ArrayDeque<>();
         boolean inString = false;
         boolean escape = false;
         for (char c : s.toCharArray()) {
@@ -64,13 +102,11 @@ public class ItineraryParser {
             if (c == '\\') { escape = true; continue; }
             if (c == '"') { inString = !inString; continue; }
             if (inString) continue;
-            if (c == '{') opens++;
-            else if (c == '}') closes++;
-            else if (c == '[') arrOpens++;
-            else if (c == ']') arrCloses++;
+            if (c == '{' || c == '[') stack.push(c);
+            else if (c == '}') { if (!stack.isEmpty() && stack.peek() == '{') stack.pop(); }
+            else if (c == ']') { if (!stack.isEmpty() && stack.peek() == '[') stack.pop(); }
         }
-        StringBuilder sb = new StringBuilder(s);
-        // Remove trailing incomplete token (comma, colon, partial key)
+        // Remove trailing incomplete token (comma, colon, partial string)
         String trimmed = s.stripTrailing();
         while (!trimmed.isEmpty()) {
             char last = trimmed.charAt(trimmed.length() - 1);
@@ -80,10 +116,18 @@ public class ItineraryParser {
                 break;
             }
         }
-        sb = new StringBuilder(trimmed);
-        // Close arrays first, then objects
-        for (int i = 0; i < arrOpens - arrCloses; i++) sb.append(']');
-        for (int i = 0; i < opens - closes; i++) sb.append('}');
+        // Remove trailing partial string if unclosed quote
+        if (inString) {
+            int lastQuote = trimmed.lastIndexOf('"');
+            if (lastQuote >= 0) trimmed = trimmed.substring(0, lastQuote).stripTrailing();
+            while (!trimmed.isEmpty() && (trimmed.charAt(trimmed.length()-1) == ',' || trimmed.charAt(trimmed.length()-1) == ':'))
+                trimmed = trimmed.substring(0, trimmed.length()-1).stripTrailing();
+        }
+        // Close in LIFO order (innermost first)
+        StringBuilder sb = new StringBuilder(trimmed);
+        while (!stack.isEmpty()) {
+            sb.append(stack.pop() == '{' ? '}' : ']');
+        }
         try {
             return objectMapper.readTree(sb.toString());
         } catch (Exception e) {
@@ -109,13 +153,16 @@ public class ItineraryParser {
 
     private Activity parseActivity(JsonNode node) {
         if (!node.isObject()) return null;
-        String time  = strField(node, null, "time", "hora", "horario");
-        String name  = strField(node, "Activitat", "name", "title", "nombre", "activitat", "activity", "nom", "titol");
-        String desc  = strField(node, null, "description", "descripcion", "descripció", "desc");
-        String loc   = strField(node, null, "location", "lugar", "lloc", "place", "ubicacion");
-        BigDecimal cost = costField(node, "estimatedCost", "cost", "precio", "preu", "price");
+        String time          = strField(node, null, "time", "hora", "horario", "arrivalTime");
+        String endTime       = strField(node, null, "endTime", "end_time", "departureTime", "horaFi");
+        String name          = strField(node, "Activitat", "name", "title", "nombre", "activitat", "activity", "nom", "titol");
+        String desc          = strField(node, null, "description", "descripcion", "descripció", "desc");
+        String loc           = strField(node, null, "location", "lugar", "lloc", "place", "ubicacion");
+        BigDecimal cost      = costField(node, "estimatedCost", "cost", "precio", "preu", "price");
         Activity.Category cat = categoryField(node, "category", "type", "tipo", "tipus");
-        return new Activity(time, name, desc, loc, cost, cat);
+        String transport     = strField(node, null, "transportMode", "transport", "transport_mode", "mitja");
+        String travelTime    = strField(node, null, "travelTime", "travel_time", "tempsDesplacament", "temps");
+        return new Activity(time, endTime, name, desc, loc, cost, cat, transport, travelTime);
     }
 
     // ── field extractors ─────────────────────────────────────────────────────
@@ -161,12 +208,58 @@ public class ItineraryParser {
             int lastFence = s.lastIndexOf("```");
             if (nl > 0 && lastFence > nl) s = s.substring(nl + 1, lastFence).strip();
         }
-        // Find outermost {...}
-        int start = s.indexOf('{');
-        int end   = s.lastIndexOf('}');
-        if (start >= 0 && end > start) return s.substring(start, end + 1);
-        if (start >= 0) return s.substring(start); // no closing brace → let repairJson fix it
-        return s;
+        // Prefer root array [...] if it starts before the first object
+        int objStart = s.indexOf('{');
+        int arrStart = s.indexOf('[');
+        if (arrStart >= 0 && (objStart < 0 || arrStart < objStart)) {
+            int end = s.lastIndexOf(']');
+            if (end > arrStart) return s.substring(arrStart, end + 1);
+            return s.substring(arrStart); // unclosed → repair
+        }
+        if (objStart < 0) return s;
+        // Extract all root-level {...} objects (model may output one per day)
+        return extractRootObjects(s, objStart);
+    }
+
+    /**
+     * Scans the string for all root-level {...} objects.
+     * If multiple are found, wraps them in [...] so the parser sees an array.
+     * If only one, returns it as-is (possibly incomplete → tryRepair fixes it).
+     */
+    private String extractRootObjects(String s, int firstObjStart) {
+        List<String> objects = new ArrayList<>();
+        int depth = 0;
+        boolean inString = false;
+        boolean escape = false;
+        int objectStart = -1;
+
+        for (int i = firstObjStart; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (escape) { escape = false; continue; }
+            if (c == '\\') { escape = true; continue; }
+            if (c == '"') { inString = !inString; continue; }
+            if (inString) continue;
+            if (c == '{') {
+                if (depth == 0) objectStart = i;
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0 && objectStart >= 0) {
+                    objects.add(s.substring(objectStart, i + 1));
+                    objectStart = -1;
+                }
+            }
+        }
+
+        if (objects.size() > 1) {
+            log.debug("cleanJson: {} objectes arrel trobats — embolicant en array", objects.size());
+            return "[" + String.join(",", objects) + "]";
+        }
+        if (objects.size() == 1) return objects.get(0);
+        // Nothing cleanly closed → return from first { to last } (truncated, let tryRepair fix)
+        int end = s.lastIndexOf('}');
+        if (end > firstObjStart) return s.substring(firstObjStart, end + 1);
+        return s.substring(firstObjStart);
     }
 
     public String toJson(List<DayPlan> plans) {

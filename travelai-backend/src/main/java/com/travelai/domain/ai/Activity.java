@@ -7,11 +7,14 @@ import java.math.BigDecimal;
 
 public record Activity(
         String time,
+        String endTime,
         String name,
         String description,
         String location,
         BigDecimal estimatedCost,
-        Category category
+        Category category,
+        String transportMode,
+        String travelTime
 ) {
     public enum Category {
         CULTURE, FOOD, LEISURE, TRANSPORT;

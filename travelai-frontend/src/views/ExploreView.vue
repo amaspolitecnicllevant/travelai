@@ -39,13 +39,13 @@ onMounted(async () => {
   loadingRated.value  = true
 
   try {
-    const { data } = await tripsApi.getAll({ size: 6, sort: 'createdAt,desc', visibility: 'PUBLIC' })
+    const { data } = await tripsApi.getPublic({ size: 6, sort: 'createdAt,desc' })
     recentTrips.value = data.content ?? data
   } catch { recentTrips.value = [] }
   finally { loadingRecent.value = false }
 
   try {
-    const { data } = await tripsApi.getAll({ size: 6, sort: 'avgRating,desc', visibility: 'PUBLIC' })
+    const { data } = await tripsApi.getPublic({ size: 6, sort: 'averageRating,desc' })
     topRatedTrips.value = data.content ?? data
   } catch { topRatedTrips.value = [] }
   finally { loadingRated.value = false }

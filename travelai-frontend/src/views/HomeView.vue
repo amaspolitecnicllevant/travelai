@@ -52,12 +52,12 @@ const features = [
           <router-link to="/register"
             class="bg-white text-indigo-700 font-semibold px-8 py-3.5 rounded-xl
                    hover:bg-indigo-50 transition-colors shadow-lg">
-            Empieza gratis
+            Comença gratis
           </router-link>
           <router-link to="/explore"
             class="border border-white/50 text-white font-semibold px-8 py-3.5 rounded-xl
                    hover:bg-white/10 transition-colors">
-            Ver viajes
+            Veure viatges
           </router-link>
         </div>
       </div>

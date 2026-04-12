@@ -1,8 +1,11 @@
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { searchApi } from '@/api/search'
 import { usersApi } from '@/api/users'
 import TripCard from '@/components/trip/TripCard.vue'
+
+const route = useRoute()
 
 // ── State ──────────────────────────────────────────────────────────────────────
 const query       = ref('')
@@ -75,6 +78,15 @@ async function toggleFollow(user) {
     // silently ignore
   }
 }
+
+// ── Init from route query ─────────────────────────────────────────────────────
+onMounted(() => {
+  const q = route.query.q
+  if (q) {
+    query.value = String(q)
+    doSearch(String(q))
+  }
+})
 
 // ── Avatar initials ────────────────────────────────────────────────────────────
 function initials(user) {

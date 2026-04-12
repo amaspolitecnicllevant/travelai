@@ -16,6 +16,49 @@ export function useAiStream() {
   const refineAll = (id, prompt)      => _stream(`${base}/ai/trips/${id}/refine-all`, 'POST', { prompt })
   const cancel    = ()                => { controller.value?.abort(); streaming.value = false }
 
+  // ── Budget estimate (independent state) ────────────────────────────────────
+  const budgetStreaming = ref(false)
+  const budgetRaw      = ref('')
+  const budgetError    = ref(null)
+  const budgetResult   = ref(null)
+  const budgetCtrl     = ref(null)
+
+  async function estimateBudget(id) {
+    budgetCtrl.value?.abort()
+    budgetStreaming.value = true
+    budgetRaw.value = ''; budgetError.value = null; budgetResult.value = null
+    budgetCtrl.value = new AbortController()
+    try {
+      const res = await fetch(`${base}/ai/trips/${id}/budget-estimate`, {
+        method: 'GET',
+        headers: { Accept: 'text/event-stream', Authorization: `Bearer ${token()}` },
+        signal: budgetCtrl.value.signal,
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const reader = res.body.getReader()
+      const dec    = new TextDecoder()
+      let pending  = ''
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        pending += dec.decode(value, { stream: true })
+        const messages = pending.split('\n\n')
+        pending = messages.pop()
+        for (const msg of messages) {
+          for (const line of msg.split('\n')) {
+            if (line.startsWith('data:')) {
+              const chunk = line.slice(5).trim()
+              if (chunk && chunk !== '[DONE]') budgetRaw.value += chunk
+            }
+          }
+        }
+      }
+      try { budgetResult.value = JSON.parse(budgetRaw.value) } catch { /* raw text, not JSON yet */ }
+    } catch (e) {
+      if (e.name !== 'AbortError') budgetError.value = e.message
+    } finally { budgetStreaming.value = false }
+  }
+
   async function _stream(url, method, body = null) {
     cancel()
     streaming.value = true; error.value = null
@@ -86,5 +129,8 @@ export function useAiStream() {
 
   return { streaming: readonly(streaming), progress: readonly(progress),
            rawBuffer: readonly(rawBuffer), days: readonly(days), error: readonly(error),
-           generate, refineDay, refineAll, cancel }
+           generate, refineDay, refineAll, cancel,
+           budgetStreaming: readonly(budgetStreaming), budgetRaw: readonly(budgetRaw),
+           budgetError: readonly(budgetError), budgetResult: readonly(budgetResult),
+           estimateBudget }
 }

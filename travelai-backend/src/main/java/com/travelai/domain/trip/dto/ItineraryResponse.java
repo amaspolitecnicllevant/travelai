@@ -20,9 +20,13 @@ public record ItineraryResponse(
 ) {
     public record DayPlan(
         String time,
+        String endTime,
         @JsonAlias("name") String activity,
         String description,
         String location,
-        @JsonAlias("category") String type
+        @JsonAlias("category") String type,
+        String transportMode,
+        String travelTime,
+        @JsonAlias("estimatedCost") Double cost
     ) {}
 }

@@ -1,8 +1,9 @@
 import api from './index'
 
 export const itineraryApi = {
-  get:      (tripId)         => api.get(`/trips/${tripId}/itinerary`),
-  save:     (tripId, data)   => api.put(`/trips/${tripId}/itinerary`, data),
+  get:      (tripId)             => api.get(`/trips/${tripId}/itinerary`),
+  save:     (tripId, data)       => api.put(`/trips/${tripId}/itinerary`, data),
+  updateDay:(tripId, day, data)  => api.put(`/trips/${tripId}/itinerary/${day}`, data),
   generate: (tripId)         => `/api/v1/ai/trips/${tripId}/generate`,
   refineAll:(tripId)         => `/api/v1/ai/trips/${tripId}/refine-all`,
   refineDay:(tripId, day)    => `/api/v1/ai/trips/${tripId}/days/${day}/refine`,

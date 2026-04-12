@@ -42,6 +42,39 @@ public class Trip {
     @Column(name = "end_date")
     private LocalDate endDate;
 
+    @Column(name = "arrival_time", length = 5)
+    private String arrivalTime;
+
+    @Column(name = "departure_time", length = 5)
+    private String departureTime;
+
+    @Column(name = "arrival_location")
+    private String arrivalLocation;
+
+    @Column(name = "accommodation_address")
+    private String accommodationAddress;
+
+    @Column(name = "preferred_transport", length = 20)
+    private String preferredTransport;
+
+    @Column(name = "trip_types", length = 100)
+    private String tripTypes; // stored as comma-separated, e.g. "CULTURAL,FAMILY"
+
+    @Column(name = "budget")
+    private String budget; // e.g. "500" (total €)
+
+    @Column(name = "budget_level", length = 20)
+    private String budgetLevel; // BUDGET | COMFORT | LUXURY
+
+    public java.util.List<String> getTripTypes() {
+        if (tripTypes == null || tripTypes.isBlank()) return java.util.List.of();
+        return java.util.Arrays.asList(tripTypes.split(","));
+    }
+
+    public void setTripTypesList(java.util.List<String> types) {
+        this.tripTypes = (types == null || types.isEmpty()) ? null : String.join(",", types);
+    }
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     @Builder.Default

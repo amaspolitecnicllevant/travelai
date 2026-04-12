@@ -11,25 +11,25 @@ export const useItineraryStore = defineStore('itinerary', () => {
     loading.value = true; error.value = null
     try {
       const { data } = await itineraryApi.get(tripId)
-      // Backend returns List<ItineraryResponse>: [{dayNumber, date, plans:[{time,activity,description,location,type}]}]
-      // Transform to the format ItineraryDay expects: [{dayNumber, date, title, activities:[{time,name,...}]}]
       const days = (Array.isArray(data) ? data : []).map(d => {
         const activities = (d.plans || d.activities || []).map(p => ({
-          time:        p.time,
-          name:        p.activity || p.name || p.title,
-          description: p.description,
-          location:    p.location,
-          type:        p.type,
-          duration:    p.duration,
-          cost:        p.cost,
+          time:          p.time,
+          endTime:       p.endTime,
+          name:          p.activity || p.name || p.title,
+          description:   p.description,
+          location:      p.location,
+          type:          p.type || p.category,
+          duration:      p.duration,
+          cost:          p.cost ?? p.estimatedCost,
+          transportMode: p.transportMode,
+          travelTime:    p.travelTime,
         }))
-        // Resum: fins a 3 noms d'activitat separats per ·
         const summary = activities.slice(0, 3).map(a => a.name).filter(Boolean).join(' · ')
         return {
-          dayNumber:   d.dayNumber,
-          date:        d.date,
-          title:       d.title || `Dia ${d.dayNumber}`,
-          description: summary || null,
+          dayNumber:    d.dayNumber,
+          date:         d.date,
+          title:        d.title || `Dia ${d.dayNumber}`,
+          description:  summary || null,
           activities,
           generatedByAi: d.generatedByAi,
         }
@@ -50,6 +50,34 @@ export const useItineraryStore = defineStore('itinerary', () => {
     finally { loading.value = false }
   }
 
+  async function updateDay(tripId, dayNumber, dayData) {
+    loading.value = true; error.value = null
+    try {
+      const payload = {
+        title: dayData.title,
+        activities: dayData.activities.map(a => ({
+          time:          a.time,
+          endTime:       a.endTime,
+          name:          a.name,
+          description:   a.description,
+          location:      a.location,
+          cost:          a.cost ? parseFloat(a.cost) : 0,
+          category:      a.type || 'LEISURE',
+          transportMode: a.transportMode,
+          travelTime:    a.travelTime,
+        }))
+      }
+      await itineraryApi.updateDay(tripId, dayNumber, payload)
+      // update local state
+      if (currentItinerary.value?.days) {
+        const idx = currentItinerary.value.days.findIndex(d => d.dayNumber === dayNumber)
+        if (idx !== -1) currentItinerary.value.days[idx] = { ...currentItinerary.value.days[idx], ...dayData }
+      }
+      return true
+    } catch (e) { error.value = e.message; return false }
+    finally { loading.value = false }
+  }
+
   function setDays(days) {
     if (!currentItinerary.value) currentItinerary.value = { days: [] }
     currentItinerary.value.days = days
@@ -60,5 +88,5 @@ export const useItineraryStore = defineStore('itinerary', () => {
     error.value = null
   }
 
-  return { currentItinerary, loading, error, fetchItinerary, saveItinerary, setDays, clear }
+  return { currentItinerary, loading, error, fetchItinerary, saveItinerary, updateDay, setDays, clear }
 })

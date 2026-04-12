@@ -96,10 +96,10 @@ public class UserController {
     }
 
     @PostMapping("/me/avatar")
-    public ResponseEntity<String> uploadAvatar(
+    public ResponseEntity<java.util.Map<String, String>> uploadAvatar(
             @RequestParam MultipartFile file,
             @AuthenticationPrincipal User user) {
         String url = userService.uploadAvatar(user.getId(), file);
-        return ResponseEntity.ok(url);
+        return ResponseEntity.ok(java.util.Map.of("avatarUrl", url));
     }
 }

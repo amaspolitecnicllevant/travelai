@@ -2,6 +2,7 @@ import api from './index'
 
 export const tripsApi = {
   getAll:    (params) => api.get('/trips', { params }),
+  getPublic: (params) => api.get('/trips/public', { params }),
   getFeed:   (params) => api.get('/trips/feed', { params }),
   getById:   (id)     => api.get(`/trips/${id}`),
   create:    (data)   => api.post('/trips', data),

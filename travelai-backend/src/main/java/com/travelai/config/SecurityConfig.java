@@ -66,6 +66,21 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
+                // Disable exception handling redirect for SSE/async responses
+                // (prevents "Unable to handle Spring Security Exception — response already committed")
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, e) -> {
+                            if (!response.isCommitted()) {
+                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+                            }
+                        })
+                        .accessDeniedHandler((request, response, e) -> {
+                            if (!response.isCommitted()) {
+                                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_FORBIDDEN, "Forbidden");
+                            }
+                        })
+                )
+
                 // Authorization rules
                 .authorizeHttpRequests(auth -> auth
                         // Auth + WebSocket — fully public

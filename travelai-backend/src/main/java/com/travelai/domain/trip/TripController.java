@@ -122,6 +122,15 @@ public class TripController {
         return ResponseEntity.ok(itineraryService.getItinerary(id, user));
     }
 
+    @PutMapping("/{id}/itinerary/{dayNumber}")
+    public ResponseEntity<ItineraryResponse> updateItineraryDay(
+            @PathVariable UUID id,
+            @PathVariable Integer dayNumber,
+            @RequestBody UpdateItineraryDayRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(itineraryService.updateDayManual(id, dayNumber, request, user));
+    }
+
     // ── Ratings ──────────────────────────────────────────────────────────────
 
     @PostMapping("/{id}/ratings")

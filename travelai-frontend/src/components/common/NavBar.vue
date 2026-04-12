@@ -83,10 +83,10 @@ onUnmounted(() => {
             Nou viatge
           </router-link>
           <router-link to="/profile" class="text-gray-600 hover:text-indigo-600 text-sm font-medium">
-            Mi perfil
+            El meu perfil
           </router-link>
           <router-link to="/my-data" class="text-gray-600 hover:text-indigo-600 text-sm font-medium">
-            Mis datos
+            Les meves dades
           </router-link>
 
           <!-- Bell notification -->
@@ -193,8 +193,8 @@ onUnmounted(() => {
       <template v-if="auth.isLoggedIn">
         <router-link to="/feed"      @click="menuOpen=false" class="text-gray-700 text-sm">Feed</router-link>
         <router-link to="/trips/new" @click="menuOpen=false" class="text-gray-700 text-sm">Nou viatge</router-link>
-        <router-link to="/profile"   @click="menuOpen=false" class="text-gray-700 text-sm">Mi perfil</router-link>
-        <router-link to="/my-data"  @click="menuOpen=false" class="text-gray-700 text-sm">Mis datos</router-link>
+        <router-link to="/profile"   @click="menuOpen=false" class="text-gray-700 text-sm">El meu perfil</router-link>
+        <router-link to="/my-data"  @click="menuOpen=false" class="text-gray-700 text-sm">Les meves dades</router-link>
         <button @click="logout(); menuOpen=false" class="text-left text-red-500 text-sm">Sortir</button>
       </template>
       <template v-else>

@@ -184,8 +184,8 @@ const statusConfig = {
           </p>
 
           <div class="mt-3 flex items-center justify-between">
-            <span class="text-xs text-gray-400">
-              {{ trip.days }} {{ trip.days === 1 ? 'dia' : 'dies' }}
+            <span v-if="trip.durationDays || trip.days" class="text-xs text-gray-400">
+              {{ trip.durationDays || trip.days }} {{ (trip.durationDays || trip.days) === 1 ? 'dia' : 'dies' }}
             </span>
             <RatingStars v-if="trip.averageRating" :model-value="trip.averageRating" :readonly="true" size="sm" />
           </div>
