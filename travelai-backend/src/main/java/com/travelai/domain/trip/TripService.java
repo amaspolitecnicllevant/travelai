@@ -153,7 +153,7 @@ public class TripService {
     @Transactional(readOnly = true)
     public Page<TripResponse> getFeed(User requester, Pageable pageable) {
         if (requester != null) {
-            return tripRepository.findFeedExcludingOwner(requester.getId(), pageable).map(this::toResponse);
+            return tripRepository.findPersonalizedFeed(requester.getId(), pageable).map(this::toResponse);
         }
         return tripRepository.findFeed(pageable).map(this::toResponse);
     }

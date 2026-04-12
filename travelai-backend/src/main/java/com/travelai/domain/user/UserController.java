@@ -95,6 +95,20 @@ public class UserController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/{username}/followers")
+    public ResponseEntity<Page<UserProfileResponse>> getFollowers(
+            @PathVariable String username,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(userService.getFollowers(username, pageable));
+    }
+
+    @GetMapping("/{username}/following")
+    public ResponseEntity<Page<UserProfileResponse>> getFollowing(
+            @PathVariable String username,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(userService.getFollowing(username, pageable));
+    }
+
     @PostMapping("/me/avatar")
     public ResponseEntity<java.util.Map<String, String>> uploadAvatar(
             @RequestParam MultipartFile file,

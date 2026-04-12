@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ItineraryDay from '@/components/trip/ItineraryDay.vue'
 import RatingStars from '@/components/trip/RatingStars.vue'
+import CommentSection from '@/components/trip/CommentSection.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -164,6 +165,11 @@ function formatDate(d) {
           class="mt-4 inline-block bg-indigo-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-indigo-700">
           Generar itinerari amb IA
         </router-link>
+      </div>
+
+      <!-- Comentaris -->
+      <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mt-6">
+        <CommentSection :trip-id="route.params.id" />
       </div>
 
       <!-- Tornar -->

@@ -70,4 +70,23 @@ public interface TripRepository extends JpaRepository<Trip, UUID> {
         ) DESC, t.createdAt DESC
         """)
     Page<Trip> findFeed(Pageable pageable);
+
+    /**
+     * Feed personalitzat: primer els viatges dels usuaris que segueixes,
+     * després la resta de públics. Exclou els propis viatges.
+     */
+    @Query("""
+        SELECT t FROM Trip t
+        WHERE t.visibility = 'PUBLIC'
+          AND t.deletedAt IS NULL
+          AND t.owner.id <> :userId
+        ORDER BY
+            CASE WHEN EXISTS (
+                SELECT 1 FROM Follow f
+                WHERE f.followerId = :userId AND f.followingId = t.owner.id
+            ) THEN 0 ELSE 1 END ASC,
+            (SELECT COALESCE(AVG(r.score), 0) FROM Rating r WHERE r.trip = t) DESC,
+            t.createdAt DESC
+        """)
+    Page<Trip> findPersonalizedFeed(@Param("userId") UUID userId, Pageable pageable);
 }

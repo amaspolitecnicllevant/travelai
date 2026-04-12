@@ -180,6 +180,26 @@ public class UserService {
         return followRepository.existsByFollowerIdAndFollowingId(followerId, followingId);
     }
 
+    /**
+     * Retorna la llista de seguidors d'un usuari.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserProfileResponse> getFollowers(String username, Pageable pageable) {
+        User user = findActiveByUsernameOrThrow(username);
+        return followRepository.findFollowers(user.getId(), pageable)
+            .map(u -> buildPublicProfile(u, null));
+    }
+
+    /**
+     * Retorna la llista d'usuaris que segueix un usuari.
+     */
+    @Transactional(readOnly = true)
+    public Page<UserProfileResponse> getFollowing(String username, Pageable pageable) {
+        User user = findActiveByUsernameOrThrow(username);
+        return followRepository.findFollowing(user.getId(), pageable)
+            .map(u -> buildPublicProfile(u, null));
+    }
+
     @Transactional
     public String uploadAvatar(UUID userId, MultipartFile file) {
         if (file.getSize() > MAX_AVATAR_SIZE) {

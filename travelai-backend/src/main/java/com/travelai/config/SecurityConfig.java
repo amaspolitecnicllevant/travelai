@@ -41,7 +41,11 @@ public class SecurityConfig {
             "/api/v1/trips/public",
             "/api/v1/trips/feed",
             "/api/v1/trips/search",
+            "/api/v1/trips/*/comments",
             "/api/v1/users/*/trips",
+            "/api/v1/users/*/followers",
+            "/api/v1/users/*/following",
+            "/api/v1/users/*/stats",
             "/api/v1/legal/**",
             "/actuator/health"
     };

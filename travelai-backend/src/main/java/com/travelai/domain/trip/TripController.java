@@ -23,6 +23,7 @@ public class TripController {
     private final TripService tripService;
     private final ItineraryService itineraryService;
     private final RatingService ratingService;
+    private final CommentService commentService;
 
     // ── Trips ────────────────────────────────────────────────────────────────
 
@@ -140,5 +141,33 @@ public class TripController {
             @AuthenticationPrincipal User user) {
         ratingService.rateTrip(id, request, user);
         return ResponseEntity.status(HttpStatus.CREATED).build();
+    }
+
+    // ── Comments ─────────────────────────────────────────────────────────────
+
+    @GetMapping("/{id}/comments")
+    public ResponseEntity<Page<CommentResponse>> getComments(
+            @PathVariable UUID id,
+            @PageableDefault(size = 20) Pageable pageable,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(commentService.getComments(id, user, pageable));
+    }
+
+    @PostMapping("/{id}/comments")
+    public ResponseEntity<CommentResponse> addComment(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateCommentRequest request,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+            .body(commentService.addComment(id, request, user));
+    }
+
+    @DeleteMapping("/{id}/comments/{commentId}")
+    public ResponseEntity<Void> deleteComment(
+            @PathVariable UUID id,
+            @PathVariable UUID commentId,
+            @AuthenticationPrincipal User user) {
+        commentService.deleteComment(id, commentId, user);
+        return ResponseEntity.noContent().build();
     }
 }

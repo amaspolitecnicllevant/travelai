@@ -5,6 +5,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import TripCard from '@/components/trip/TripCard.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import FollowListModal from '@/components/user/FollowListModal.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -27,8 +28,10 @@ const trips        = ref([])
 const stats        = ref(null)
 const loading      = ref(false)
 const error        = ref(null)
-const following    = ref(false)
+const following     = ref(false)
 const followLoading = ref(false)
+const showFollowers = ref(false)
+const showFollowing = ref(false)
 
 const initials = computed(() => {
   const name = profile.value?.name || profile.value?.username || ''
@@ -148,10 +151,22 @@ watch(username, fetchProfile)
                   <span class="text-lg font-semibold text-gray-900">{{ avgRating }}</span>
                   <span class="text-xs text-gray-500 ml-1">⭐ valoració mitja</span>
                 </div>
-                <div v-if="stats?.followersCount != null" class="text-center">
+                <button
+                  v-if="stats?.followersCount != null"
+                  @click="showFollowers = true"
+                  class="text-center hover:opacity-75 transition-opacity cursor-pointer"
+                >
                   <span class="text-lg font-semibold text-gray-900">{{ stats.followersCount }}</span>
                   <span class="text-xs text-gray-500 ml-1">seguidors</span>
-                </div>
+                </button>
+                <button
+                  v-if="stats?.followingCount != null"
+                  @click="showFollowing = true"
+                  class="text-center hover:opacity-75 transition-opacity cursor-pointer"
+                >
+                  <span class="text-lg font-semibold text-gray-900">{{ stats.followingCount }}</span>
+                  <span class="text-xs text-gray-500 ml-1">seguint</span>
+                </button>
               </div>
             </div>
 
@@ -186,5 +201,19 @@ watch(username, fetchProfile)
         </div>
       </div>
     </template>
+
+    <!-- Modals seguidors / seguint -->
+    <FollowListModal
+      v-if="profile"
+      v-model="showFollowers"
+      :username="profile.username"
+      mode="followers"
+    />
+    <FollowListModal
+      v-if="profile"
+      v-model="showFollowing"
+      :username="profile.username"
+      mode="following"
+    />
   </div>
 </template>
