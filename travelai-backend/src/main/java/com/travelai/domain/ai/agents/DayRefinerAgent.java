@@ -5,6 +5,7 @@ import com.travelai.domain.ai.AiException;
 import com.travelai.domain.ai.DayPlan;
 import com.travelai.domain.ai.ItineraryParser;
 import com.travelai.domain.ai.OllamaService;
+import com.travelai.domain.ai.RestCountriesService;
 import com.travelai.domain.ai.WeatherService;
 import com.travelai.domain.trip.Itinerary;
 import com.travelai.domain.trip.ItineraryRepository;
@@ -31,6 +32,7 @@ public class DayRefinerAgent {
     private final ItineraryRepository itineraryRepository;
     private final ObjectMapper objectMapper;
     private final WeatherService weatherService;
+    private final RestCountriesService restCountriesService;
 
     private static final String SYSTEM_PROMPT = """
             Ets un expert en viatges. Modifica NOMÉS el dia %d de l'itinerari \
@@ -70,7 +72,8 @@ public class DayRefinerAgent {
         String weatherContext = existing.getDate() != null
                 ? weatherService.getWeatherContext(trip.getDestination(), existing.getDate(), 1)
                 : "";
-        String fullUserPrompt = buildUserPrompt(dayNumber, existing.getContentJson(), userPrompt, weatherContext);
+        String countryContext = restCountriesService.getCountryContext(trip.getDestination());
+        String fullUserPrompt = buildUserPrompt(dayNumber, existing.getContentJson(), userPrompt, weatherContext, countryContext);
 
         log.info("DayRefinerAgent: refinant dia {} del trip {} — prompt: {}",
                 dayNumber, trip.getId(), userPrompt);
@@ -94,8 +97,11 @@ public class DayRefinerAgent {
     // ── helpers ─────────────────────────────────────────────────────────────
 
     private String buildUserPrompt(int dayNumber, String existingContentJson,
-                                   String userPrompt, String weatherContext) {
+                                   String userPrompt, String weatherContext, String countryContext) {
         StringBuilder sb = new StringBuilder();
+        if (!countryContext.isBlank()) {
+            sb.append(countryContext).append("\n");
+        }
         sb.append("Itinerari actual del dia %d:\n%s\n\n".formatted(dayNumber, existingContentJson));
         if (!weatherContext.isBlank()) {
             sb.append("Previsió meteorològica per a aquest dia:\n").append(weatherContext).append("\n");
