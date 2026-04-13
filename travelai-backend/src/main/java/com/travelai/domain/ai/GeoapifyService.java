@@ -38,10 +38,10 @@ public class GeoapifyService {
             "https://api.geoapify.com/v2/places" +
             "?categories=%s&filter=circle:%s,%s,10000&limit=%d&apiKey=%s";
 
-    // Categories útils per a itineraris turístics
+    // Categories útils per a itineraris turístics (vegeu: apidocs.geoapify.com/docs/places)
     private static final String CATEGORIES =
-            "tourism.sightseeing,tourism.attraction,entertainment.museum," +
-            "catering.restaurant,natural.park,commercial.shopping_mall";
+            "tourism.sights,tourism.attraction,entertainment.museum," +
+            "catering.restaurant,leisure.park,commercial.shopping_mall";
 
     private static final int MAX_POIS = 20;
 
@@ -176,11 +176,11 @@ public class GeoapifyService {
     }
 
     private String resolveCategory(String categories) {
-        if (categories.contains("museum"))      return "Museums";
-        if (categories.contains("sightseeing") || categories.contains("attraction")) return "Sightseeing";
-        if (categories.contains("restaurant") || categories.contains("catering"))    return "Restaurants";
-        if (categories.contains("park") || categories.contains("natural"))           return "Parks & Nature";
-        if (categories.contains("shopping"))    return "Shopping";
+        if (categories.contains("museum"))                          return "Museums";
+        if (categories.contains("sights") || categories.contains("attraction")) return "Sightseeing";
+        if (categories.contains("restaurant") || categories.contains("catering")) return "Restaurants";
+        if (categories.contains("park") || categories.contains("leisure"))      return "Parks & Nature";
+        if (categories.contains("shopping"))                        return "Shopping";
         return "Points of interest";
     }
 
