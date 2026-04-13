@@ -84,9 +84,12 @@ travelai/
    - ✅ CommentSection: propietari viatge pot eliminar qualsevol comentari (tripOwnerUsername prop)
    - ✅ MyProfileView: stats seguidors/seguint clicables + FollowListModal
 3. 🔄 IA avançada — Edició global, multi-turn, cerca web, clima
-   - Branca activa: `feat/fase-3-sessio10`
+   - Branca activa: `feat/fase-3-sessio11`
    - ✅ EditorAgent global: useAiStream.editItinerary() → POST /ai/trips/{id}/edit
-   - ✅ AiChatBox: prop useEditorAgent per usar EditorAgent en comptes de refineAll
+   - ✅ AiChatBox: prop useEditorAgent + historial de conversa multi-turn (bulles de chat)
    - ✅ TripPlannerView: botó + panel lateral "Editar itinerari amb IA"
-   - Pendent: multi-turn conversacional (historial), ActivitySuggestions, cerca web, clima
+   - ✅ ActivitySuggestions: fix SSE (era Axios), integrat al panel de refinament
+   - ✅ useAiStream.suggestActivities() → SSE POST /ai/trips/{id}/days/{n}/activities/suggest
+   - ✅ handleAddActivity a TripPlannerView: afegeix activitat suggeria al dia via itineraryStore
+   - Pendent: integració clima (Open-Meteo) + cerca web (backend) als prompts de generació
 4. ⬜ Producció — Docker multi-stage, HTTPS, CI/CD, auditoria RGPD completa
