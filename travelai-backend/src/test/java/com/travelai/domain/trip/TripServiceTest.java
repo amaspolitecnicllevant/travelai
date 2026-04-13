@@ -74,7 +74,8 @@ class TripServiceTest {
                 "Barcelona",
                 LocalDate.now().plusDays(30),
                 LocalDate.now().plusDays(37),
-                Visibility.PRIVATE  // PRIVATE per defecte
+                null, null, null, null, null, null, null, null,
+                Visibility.PRIVATE
         );
 
         Trip savedTrip = buildTrip(owner, Visibility.PRIVATE);
