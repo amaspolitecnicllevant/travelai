@@ -2,10 +2,30 @@
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTrips } from '@/composables/useTrips'
+import { useDestinationAutocomplete } from '@/composables/useDestinationAutocomplete'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const router = useRouter()
 const { createTrip, store } = useTrips()
+const { suggestions, loading: destLoading, search: searchDest, clear: clearSuggestions } = useDestinationAutocomplete()
+
+const showSuggestions = ref(false)
+
+function onDestinationInput(e) {
+  searchDest(e.target.value)
+  showSuggestions.value = true
+}
+
+function selectSuggestion(s) {
+  form.value.destination = s.label
+  showSuggestions.value = false
+  clearSuggestions()
+}
+
+function onDestinationBlur() {
+  // Delay to allow click on suggestion to fire first
+  setTimeout(() => { showSuggestions.value = false }, 150)
+}
 
 // ── Form state ───────────────────────────────────────────────────────────────
 const form = ref({
@@ -127,12 +147,42 @@ async function submit() {
                      focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
           </div>
 
-          <!-- Destination -->
-          <div>
+          <!-- Destination with autocomplete -->
+          <div class="relative">
             <label class="block text-sm font-medium text-gray-700 mb-1">Destinació *</label>
-            <input v-model="form.destination" type="text" required placeholder="Ex: Tòquio, Japó"
-              class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
-                     focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"/>
+            <div class="relative">
+              <input
+                v-model="form.destination"
+                type="text"
+                required
+                autocomplete="off"
+                placeholder="Ex: Tòquio, Roma, Barcelona..."
+                class="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent"
+                @input="onDestinationInput"
+                @blur="onDestinationBlur"
+                @focus="showSuggestions = suggestions.length > 0"
+              />
+              <span v-if="destLoading"
+                class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs animate-pulse">
+                Cercant...
+              </span>
+            </div>
+
+            <!-- Suggestions dropdown -->
+            <ul v-if="showSuggestions && suggestions.length"
+              class="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg
+                     max-h-56 overflow-y-auto">
+              <li
+                v-for="s in suggestions"
+                :key="s.label"
+                @mousedown.prevent="selectSuggestion(s)"
+                class="px-4 py-2.5 cursor-pointer hover:bg-indigo-50 flex items-start gap-2 text-sm"
+              >
+                <span class="text-gray-400 mt-0.5 flex-shrink-0">📍</span>
+                <span class="text-gray-800">{{ s.label }}</span>
+              </li>
+            </ul>
           </div>
 
           <!-- Budget amount -->
