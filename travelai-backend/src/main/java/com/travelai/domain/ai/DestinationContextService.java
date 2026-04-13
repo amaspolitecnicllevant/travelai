@@ -92,7 +92,7 @@ public class DestinationContextService {
 
         // Limitar a ~400 caràcters per no inflar el prompt
         if (extract.length() > 400) {
-            int cutoff = extract.lastIndexOf('. ', 400);
+            int cutoff = extract.lastIndexOf(". ", 400);
             extract = cutoff > 100 ? extract.substring(0, cutoff + 1) : extract.substring(0, 400);
         }
 
