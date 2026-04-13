@@ -75,11 +75,18 @@ travelai/
 1. ✅ MVP — Auth, CRUD viatges, IA itineraris, feed, valoracions, RGPD complet
    - Branca: main (commit 344df2f)
    - Totes les vistes implementades, V1–V22 Flyway, cap stub pendent
-2. 🔄 Social — Follows llistes, feed personalitzat, comentaris, notificacions RT
-   - Branca activa: `feat/fase-2-sessio8`
+2. ✅ Social — Follows, feed personalitzat, comentaris, notificacions RT
+   - Branques: feat/fase-2-sessio8, feat/fase-2-sessio9
    - ✅ Comentaris: Comment entitat, V23, GET/POST/DELETE /trips/{id}/comments, CommentSection.vue
    - ✅ Seguidors/seguint: GET /users/{username}/followers|following, FollowListModal.vue
    - ✅ Feed personalitzat: trips de follows primer (findPersonalizedFeed)
-   - Pendent: notificacions RT via WebSocket, CommentSection al propietari del viatge
-3. ⬜ IA avançada — Multi-turn, cerca web, clima, pressupost
+   - ✅ Notificacions RT: useWebSocket.js (STOMP/SockJS), NavBar badge+dropdown, useNotificationsStore
+   - ✅ CommentSection: propietari viatge pot eliminar qualsevol comentari (tripOwnerUsername prop)
+   - ✅ MyProfileView: stats seguidors/seguint clicables + FollowListModal
+3. 🔄 IA avançada — Edició global, multi-turn, cerca web, clima
+   - Branca activa: `feat/fase-3-sessio10`
+   - ✅ EditorAgent global: useAiStream.editItinerary() → POST /ai/trips/{id}/edit
+   - ✅ AiChatBox: prop useEditorAgent per usar EditorAgent en comptes de refineAll
+   - ✅ TripPlannerView: botó + panel lateral "Editar itinerari amb IA"
+   - Pendent: multi-turn conversacional (historial), ActivitySuggestions, cerca web, clima
 4. ⬜ Producció — Docker multi-stage, HTTPS, CI/CD, auditoria RGPD completa
