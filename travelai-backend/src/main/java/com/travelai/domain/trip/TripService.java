@@ -21,9 +21,12 @@ public class TripService {
 
     private final TripRepository tripRepository;
     private final RatingRepository ratingRepository;
+    private final UnsplashService unsplashService;
 
     @Transactional
     public TripResponse createTrip(CreateTripRequest request, User owner) {
+        String coverImageUrl = unsplashService.getCoverImageUrl(request.destination());
+
         Trip trip = Trip.builder()
             .owner(owner)
             .title(request.title())
@@ -37,6 +40,7 @@ public class TripService {
             .accommodationAddress(request.accommodationAddress())
             .preferredTransport(request.preferredTransport())
             .visibility(request.visibility())
+            .coverImageUrl(coverImageUrl)
             .build();
         if (request.tripTypes() != null) trip.setTripTypesList(request.tripTypes());
         if (request.budget() != null)    trip.setBudget(request.budget());

@@ -128,6 +128,7 @@ services:
       MINIO_BUCKET: travelai
       APP_FRONTEND_URL: http://localhost:5173
       APP_CORS_ORIGINS: http://localhost:5173,http://localhost:80
+      UNSPLASH_ACCESS_KEY: ${UNSPLASH_ACCESS_KEY:-}
       APP_CONTACT_EMAIL: ${APP_CONTACT_EMAIL:-privacidad@travelai.local}
       APP_DPO_EMAIL: ${APP_DPO_EMAIL:-dpo@travelai.local}
       GDPR_DELETION_DAYS: ${GDPR_DELETION_DAYS:-30}
