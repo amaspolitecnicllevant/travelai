@@ -59,7 +59,7 @@ public class ItineraryAgent {
      */
     public Flux<String> generate(Trip trip) {
         int days = computeDays(trip);
-        String systemPrompt = SYSTEM_PROMPT.formatted(trip.getDestination(), days);
+        String systemPrompt = SYSTEM_PROMPT.formatted(days, trip.getDestination(), days);
         String weatherContext  = weatherService.getWeatherContext(trip.getDestination(), trip.getStartDate(), days);
         String destContext     = destinationContextService.getDestinationContext(trip.getDestination());
         String userPrompt      = buildUserPrompt(trip, weatherContext, destContext);

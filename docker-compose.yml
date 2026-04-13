@@ -120,7 +120,7 @@ services:
       OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b}
       AI_PROVIDER: ${AI_PROVIDER:-ollama}
       JWT_SECRET: ${JWT_SECRET:-cambiar-esto-en-produccion-minimo-256bits}
-      JWT_EXPIRATION_MS: 86400000
+      JWT_ACCESS_EXPIRATION_MS: 86400000
       JWT_REFRESH_EXPIRATION_MS: 604800000
       MINIO_ENDPOINT: http://minio:9000
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}

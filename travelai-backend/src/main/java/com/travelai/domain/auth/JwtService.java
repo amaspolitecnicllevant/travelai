@@ -18,11 +18,6 @@ import java.util.UUID;
 @Slf4j
 public class JwtService {
 
-    // Access token: 15 minutes
-    private static final long ACCESS_EXPIRATION_MS = 15 * 60 * 1000L;
-    // Refresh token: 7 days
-    private static final long REFRESH_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000L;
-
     private static final String CLAIM_ROLE = "role";
     private static final String CLAIM_TYPE = "type";
     private static final String TYPE_ACCESS = "access";
@@ -31,13 +26,19 @@ public class JwtService {
     @Value("${jwt.secret:dev-secret-change-in-prod-please-use-env-var}")
     private String secret;
 
+    @Value("${jwt.access-expiration-ms:86400000}")
+    private long accessExpirationMs;
+
+    @Value("${jwt.refresh-expiration-ms:604800000}")
+    private long refreshExpirationMs;
+
     public String generateAccessToken(UUID userId, Role role) {
         return Jwts.builder()
             .subject(userId.toString())
             .claim(CLAIM_ROLE, role.name())
             .claim(CLAIM_TYPE, TYPE_ACCESS)
             .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + ACCESS_EXPIRATION_MS))
+            .expiration(new Date(System.currentTimeMillis() + accessExpirationMs))
             .signWith(getSigningKey())
             .compact();
     }
@@ -47,7 +48,7 @@ public class JwtService {
             .subject(userId.toString())
             .claim(CLAIM_TYPE, TYPE_REFRESH)
             .issuedAt(new Date())
-            .expiration(new Date(System.currentTimeMillis() + REFRESH_EXPIRATION_MS))
+            .expiration(new Date(System.currentTimeMillis() + refreshExpirationMs))
             .signWith(getSigningKey())
             .compact();
     }

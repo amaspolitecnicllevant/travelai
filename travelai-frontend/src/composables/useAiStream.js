@@ -11,6 +11,22 @@ export function useAiStream() {
   const base  = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const token = () => localStorage.getItem('accessToken')
 
+  // Refresc de token per a crides fetch() (SSE) — l'interceptor Axios no cobreix fetch
+  async function _refreshToken() {
+    const rt = localStorage.getItem('refreshToken')
+    if (!rt) { window.location.href = '/login'; throw new Error('No refresh token') }
+    const resp = await fetch(`${base}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: rt }),
+    })
+    if (!resp.ok) { localStorage.clear(); window.location.href = '/login'; throw new Error('Session expired') }
+    const data = await resp.json()
+    localStorage.setItem('accessToken', data.accessToken)
+    localStorage.setItem('refreshToken', data.refreshToken)
+    return data.accessToken
+  }
+
   const generate      = (id)              => _stream(`${base}/ai/trips/${id}/generate`, 'POST')
   const refineDay     = (id, day, prompt) => _stream(`${base}/ai/trips/${id}/days/${day}/refine`, 'POST', { prompt })
   const refineAll     = (id, prompt)      => _stream(`${base}/ai/trips/${id}/refine-all`, 'POST', { prompt })
@@ -30,11 +46,20 @@ export function useAiStream() {
     budgetRaw.value = ''; budgetError.value = null; budgetResult.value = null
     budgetCtrl.value = new AbortController()
     try {
-      const res = await fetch(`${base}/ai/trips/${id}/budget-estimate`, {
+      let tk = token()
+      let res = await fetch(`${base}/ai/trips/${id}/budget-estimate`, {
         method: 'GET',
-        headers: { Accept: 'text/event-stream', Authorization: `Bearer ${token()}` },
+        headers: { Accept: 'text/event-stream', Authorization: `Bearer ${tk}` },
         signal: budgetCtrl.value.signal,
       })
+      if (res.status === 401) {
+        tk = await _refreshToken()
+        res = await fetch(`${base}/ai/trips/${id}/budget-estimate`, {
+          method: 'GET',
+          headers: { Accept: 'text/event-stream', Authorization: `Bearer ${tk}` },
+          signal: budgetCtrl.value.signal,
+        })
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const reader = res.body.getReader()
       const dec    = new TextDecoder()
@@ -67,13 +92,25 @@ export function useAiStream() {
     progress.value  = 'Connectant amb la IA...'
     controller.value = new AbortController()
     try {
-      const res = await fetch(url, {
+      let currentToken = token()
+      let res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream',
-                   Authorization: `Bearer ${token()}` },
+                   Authorization: `Bearer ${currentToken}` },
         body: body ? JSON.stringify(body) : null,
         signal: controller.value.signal
       })
+      // Si token expirat, refresc automàtic i reintent (igual que l'interceptor Axios)
+      if (res.status === 401) {
+        currentToken = await _refreshToken()
+        res = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream',
+                     Authorization: `Bearer ${currentToken}` },
+          body: body ? JSON.stringify(body) : null,
+          signal: controller.value.signal
+        })
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const reader = res.body.getReader()
       const dec    = new TextDecoder()
@@ -141,13 +178,25 @@ export function useAiStream() {
     suggestRaw.value = ''; suggestError.value = null; suggestResult.value = []
     suggestCtrl.value = new AbortController()
     try {
-      const res = await fetch(`${base}/ai/trips/${tripId}/days/${dayNumber}/activities/suggest`, {
+      const suggestUrl = `${base}/ai/trips/${tripId}/days/${dayNumber}/activities/suggest`
+      let tk = token()
+      let res = await fetch(suggestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream',
-                   Authorization: `Bearer ${token()}` },
+                   Authorization: `Bearer ${tk}` },
         body: JSON.stringify({ category }),
         signal: suggestCtrl.value.signal,
       })
+      if (res.status === 401) {
+        tk = await _refreshToken()
+        res = await fetch(suggestUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream',
+                     Authorization: `Bearer ${tk}` },
+          body: JSON.stringify({ category }),
+          signal: suggestCtrl.value.signal,
+        })
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const reader = res.body.getReader()
       const dec    = new TextDecoder()

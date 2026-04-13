@@ -67,7 +67,7 @@ travelai/
 - Rames: main, develop, feat/nom, fix/nom
 
 ## Model IA
-- **Model actiu:** `gemma4:26b-a4b-it-q4_K_M` (Ollama local)
+- **Model actiu:** `qwen2.5:7b` (Ollama local) — gemma4:26b requereix +18 GiB RAM, no cap
 - **numCtx:** 8192 — NO augmentar, causa OOM
 - Sistema de prompts en anglès concís
 
