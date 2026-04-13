@@ -5,6 +5,7 @@ import com.travelai.domain.ai.AiException;
 import com.travelai.domain.ai.DayPlan;
 import com.travelai.domain.ai.ItineraryParser;
 import com.travelai.domain.ai.OllamaService;
+import com.travelai.domain.ai.WeatherService;
 import com.travelai.domain.trip.Itinerary;
 import com.travelai.domain.trip.ItineraryRepository;
 import com.travelai.domain.trip.Trip;
@@ -29,6 +30,7 @@ public class ItineraryAgent {
     private final ItineraryParser itineraryParser;
     private final ItineraryRepository itineraryRepository;
     private final ObjectMapper objectMapper;
+    private final WeatherService weatherService;
 
     private static final String SYSTEM_PROMPT = """
             You are an expert travel planner. IMPORTANT: Always respond in the same language the user uses.
@@ -56,9 +58,11 @@ public class ItineraryAgent {
     public Flux<String> generate(Trip trip) {
         int days = computeDays(trip);
         String systemPrompt = SYSTEM_PROMPT.formatted(trip.getDestination(), days);
-        String userPrompt = buildUserPrompt(trip);
+        String weatherContext = weatherService.getWeatherContext(trip.getDestination(), trip.getStartDate(), days);
+        String userPrompt = buildUserPrompt(trip, weatherContext);
 
-        log.info("ItineraryAgent: generant itinerari per a '{}' ({} dies)", trip.getDestination(), days);
+        log.info("ItineraryAgent: generant itinerari per a '{}' ({} dies, clima: {})",
+                trip.getDestination(), days, weatherContext.isBlank() ? "no disponible" : "disponible");
 
         StringBuilder fullResponse = new StringBuilder();
 
@@ -84,7 +88,7 @@ public class ItineraryAgent {
         return 3; // valor per defecte si no hi ha dates
     }
 
-    private String buildUserPrompt(Trip trip) {
+    private String buildUserPrompt(Trip trip, String weatherContext) {
         int days = computeDays(trip);
         StringBuilder sb = new StringBuilder();
         sb.append("Destino: ").append(trip.getDestination()).append("\n");
@@ -147,6 +151,11 @@ public class ItineraryAgent {
                 default        -> trip.getBudgetLevel();
             };
             sb.append("Nivel de presupuesto: ").append(label).append("\n");
+        }
+        if (!weatherContext.isBlank()) {
+            sb.append("\n").append(weatherContext);
+            sb.append("Consider the weather when planning outdoor activities. ")
+              .append("On rainy days, prefer indoor alternatives or add rain contingency notes.\n");
         }
         sb.append("Genera el itinerari complet en JSON.");
         return sb.toString();

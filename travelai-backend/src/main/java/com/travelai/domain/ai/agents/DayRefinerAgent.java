@@ -5,6 +5,7 @@ import com.travelai.domain.ai.AiException;
 import com.travelai.domain.ai.DayPlan;
 import com.travelai.domain.ai.ItineraryParser;
 import com.travelai.domain.ai.OllamaService;
+import com.travelai.domain.ai.WeatherService;
 import com.travelai.domain.trip.Itinerary;
 import com.travelai.domain.trip.ItineraryRepository;
 import com.travelai.domain.trip.Trip;
@@ -29,6 +30,7 @@ public class DayRefinerAgent {
     private final ItineraryParser itineraryParser;
     private final ItineraryRepository itineraryRepository;
     private final ObjectMapper objectMapper;
+    private final WeatherService weatherService;
 
     private static final String SYSTEM_PROMPT = """
             Ets un expert en viatges. Modifica NOMÉS el dia %d de l'itinerari \
@@ -65,7 +67,10 @@ public class DayRefinerAgent {
                         "No s'ha trobat el dia %d de l'itinerari".formatted(dayNumber)));
 
         String systemPrompt = SYSTEM_PROMPT.formatted(dayNumber, dayNumber);
-        String fullUserPrompt = buildUserPrompt(dayNumber, existing.getContentJson(), userPrompt);
+        String weatherContext = existing.getDate() != null
+                ? weatherService.getWeatherContext(trip.getDestination(), existing.getDate(), 1)
+                : "";
+        String fullUserPrompt = buildUserPrompt(dayNumber, existing.getContentJson(), userPrompt, weatherContext);
 
         log.info("DayRefinerAgent: refinant dia {} del trip {} — prompt: {}",
                 dayNumber, trip.getId(), userPrompt);
@@ -88,16 +93,16 @@ public class DayRefinerAgent {
 
     // ── helpers ─────────────────────────────────────────────────────────────
 
-    private String buildUserPrompt(int dayNumber, String existingContentJson, String userPrompt) {
-        return """
-                Itinerari actual del dia %d:
-                %s
-
-                Instruccions de l'usuari:
-                %s
-
-                Modifica el dia seguint les instruccions i retorna NOMÉS el JSON del dia modificat.
-                """.formatted(dayNumber, existingContentJson, userPrompt);
+    private String buildUserPrompt(int dayNumber, String existingContentJson,
+                                   String userPrompt, String weatherContext) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("Itinerari actual del dia %d:\n%s\n\n".formatted(dayNumber, existingContentJson));
+        if (!weatherContext.isBlank()) {
+            sb.append("Previsió meteorològica per a aquest dia:\n").append(weatherContext).append("\n");
+        }
+        sb.append("Instruccions de l'usuari:\n").append(userPrompt).append("\n\n");
+        sb.append("Modifica el dia seguint les instruccions i retorna NOMÉS el JSON del dia modificat.");
+        return sb.toString();
     }
 
     private void persistRefinedDay(Itinerary itinerary, String refinedJson, int dayNumber) {
