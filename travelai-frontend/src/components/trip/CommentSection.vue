@@ -5,7 +5,8 @@ import { itineraryApi } from '@/api/itinerary'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const props = defineProps({
-  tripId: { type: String, required: true },
+  tripId:           { type: String, required: true },
+  tripOwnerUsername: { type: String, default: null },
 })
 
 const auth      = useAuthStore()
@@ -183,7 +184,7 @@ onMounted(() => loadComments(true))
 
           <!-- Delete (own comment or trip owner) -->
           <button
-            v-if="auth.user?.username === comment.authorUsername"
+            v-if="auth.user?.username === comment.authorUsername || auth.user?.username === tripOwnerUsername"
             @click="deleteComment(comment.id)"
             class="mt-1 text-xs text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
           >

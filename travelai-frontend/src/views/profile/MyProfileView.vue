@@ -6,6 +6,7 @@ import { legalApi } from '@/api/legal'
 import { tripsApi } from '@/api/trips'
 import TripCard from '@/components/trip/TripCard.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import FollowListModal from '@/components/user/FollowListModal.vue'
 import { useToast } from '@/composables/useToast'
 
 const auth  = useAuthStore()
@@ -14,9 +15,9 @@ const toast = useToast()
 // ── Tabs ──────────────────────────────────────────────────────────────────────
 const activeTab = ref('trips')
 const tabs = [
-  { id: 'trips',    label: 'Mis viajes' },
-  { id: 'settings', label: 'Ajustes' },
-  { id: 'data',     label: 'Mis datos' },
+  { id: 'trips',    label: 'Els meus viatges' },
+  { id: 'settings', label: 'Ajustos' },
+  { id: 'data',     label: 'Les meves dades' },
 ]
 
 // ── Avatar inicials ───────────────────────────────────────────────────────────
@@ -30,6 +31,19 @@ const formattedDate = computed(() => {
   if (!d) return ''
   return new Date(d).toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })
 })
+
+// ── Stats (seguidors / seguint) ───────────────────────────────────────────────
+const stats         = ref(null)
+const showFollowers = ref(false)
+const showFollowing = ref(false)
+
+async function fetchStats() {
+  if (!auth.user?.username) return
+  try {
+    const { data } = await usersApi.getStats(auth.user.username)
+    stats.value = data
+  } catch { /* non-critical */ }
+}
 
 // ── Trips ─────────────────────────────────────────────────────────────────────
 const trips      = ref([])
@@ -163,7 +177,7 @@ async function saveAvatar() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-onMounted(fetchTrips)
+onMounted(() => { fetchTrips(); fetchStats() })
 </script>
 
 <template>
@@ -182,6 +196,23 @@ onMounted(fetchTrips)
           <h1 class="text-2xl font-bold text-gray-900">{{ auth.user?.name || auth.user?.username }}</h1>
           <p class="text-sm text-gray-500 mt-0.5">{{ auth.user?.email }}</p>
           <p v-if="formattedDate" class="text-xs text-gray-400 mt-1">Membre des de {{ formattedDate }}</p>
+          <!-- Stats -->
+          <div v-if="stats" class="flex items-center gap-5 mt-3">
+            <button @click="showFollowers = true"
+                    class="text-center hover:opacity-75 transition-opacity">
+              <span class="text-base font-semibold text-gray-900">{{ stats.followersCount }}</span>
+              <span class="text-xs text-gray-500 ml-1">seguidors</span>
+            </button>
+            <button @click="showFollowing = true"
+                    class="text-center hover:opacity-75 transition-opacity">
+              <span class="text-base font-semibold text-gray-900">{{ stats.followingCount }}</span>
+              <span class="text-xs text-gray-500 ml-1">seguint</span>
+            </button>
+            <span class="text-center">
+              <span class="text-base font-semibold text-gray-900">{{ trips.length }}</span>
+              <span class="text-xs text-gray-500 ml-1">viatges</span>
+            </span>
+          </div>
         </div>
       </div>
 
@@ -430,5 +461,19 @@ onMounted(fetchTrips)
         </div>
       </div>
     </Teleport>
+
+    <!-- Modals seguidors / seguint -->
+    <FollowListModal
+      v-if="auth.user?.username"
+      v-model="showFollowers"
+      :username="auth.user.username"
+      mode="followers"
+    />
+    <FollowListModal
+      v-if="auth.user?.username"
+      v-model="showFollowing"
+      :username="auth.user.username"
+      mode="following"
+    />
   </div>
 </template>

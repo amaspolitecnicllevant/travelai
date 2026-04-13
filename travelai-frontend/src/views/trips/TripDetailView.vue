@@ -169,7 +169,7 @@ function formatDate(d) {
 
       <!-- Comentaris -->
       <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mt-6">
-        <CommentSection :trip-id="route.params.id" />
+        <CommentSection :trip-id="route.params.id" :trip-owner-username="trip.ownerUsername" />
       </div>
 
       <!-- Tornar -->
