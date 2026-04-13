@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from 'vue'
-import api from '@/api'
+import { useAiStream } from '@/composables/useAiStream'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const props = defineProps({
@@ -10,38 +10,21 @@ const props = defineProps({
 
 const emit = defineEmits(['add-activity'])
 
-// ── Category selector ─────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { value: 'CULTURE',   label: 'Cultura',    icon: '🏛' },
-  { value: 'FOOD',      label: 'Gastronomia',icon: '🍽' },
-  { value: 'LEISURE',   label: 'Lleure',     icon: '🎭' },
-  { value: 'NATURE',    label: 'Natura',     icon: '🌿' },
-  { value: 'SPORT',     label: 'Esport',     icon: '⚽' },
-  { value: 'NIGHTLIFE', label: 'Nit',        icon: '🌙' },
+  { value: 'CULTURE',   label: 'Cultura',     icon: '🏛' },
+  { value: 'FOOD',      label: 'Gastronomia', icon: '🍽' },
+  { value: 'LEISURE',   label: 'Lleure',      icon: '🎭' },
+  { value: 'NATURE',    label: 'Natura',      icon: '🌿' },
+  { value: 'SPORT',     label: 'Esport',      icon: '⚽' },
+  { value: 'NIGHTLIFE', label: 'Nit',         icon: '🌙' },
 ]
 
 const selectedCategory = ref('CULTURE')
 
-// ── Suggestions state ─────────────────────────────────────────────────────────
-const suggestions = ref([])
-const loading     = ref(false)
-const error       = ref(null)
+const { suggestStreaming, suggestError, suggestResult, suggestActivities } = useAiStream()
 
-async function suggest() {
-  loading.value     = true
-  error.value       = null
-  suggestions.value = []
-  try {
-    const { data } = await api.post(
-      `/ai/trips/${props.tripId}/days/${props.dayNumber}/activities/suggest`,
-      { category: selectedCategory.value }
-    )
-    suggestions.value = Array.isArray(data) ? data : (data.suggestions ?? [])
-  } catch (e) {
-    error.value = e.response?.data?.message || 'Error generant suggeriments. Torna-ho a intentar.'
-  } finally {
-    loading.value = false
-  }
+function suggest() {
+  suggestActivities(props.tripId, props.dayNumber, selectedCategory.value)
 }
 
 function addActivity(activity) {
@@ -85,25 +68,33 @@ function addActivity(activity) {
     <div class="px-4 pb-4">
       <button
         @click="suggest"
-        :disabled="loading"
+        :disabled="suggestStreaming"
         class="w-full bg-indigo-600 text-white text-sm font-medium py-2.5 rounded-lg
                hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
                transition-colors flex items-center justify-center gap-2"
       >
-        <LoadingSpinner v-if="loading" size="sm" color="white" />
-        <span>{{ loading ? 'Generant...' : 'Suggerir activitats' }}</span>
+        <LoadingSpinner v-if="suggestStreaming" size="sm" color="white" />
+        <span>{{ suggestStreaming ? 'Generant...' : 'Suggerir activitats' }}</span>
       </button>
     </div>
 
     <!-- Error -->
-    <div v-if="error" class="mx-4 mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
-      {{ error }}
+    <div v-if="suggestError" class="mx-4 mb-4 bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
+      {{ suggestError }}
+    </div>
+
+    <!-- Streaming indicator -->
+    <div v-if="suggestStreaming" class="mx-4 mb-4 flex items-center gap-2 text-xs text-gray-400">
+      <div class="flex-1 bg-gray-100 rounded-full h-1 overflow-hidden">
+        <div class="bg-indigo-400 h-1 rounded-full animate-pulse w-2/3"></div>
+      </div>
+      <span>Generant suggeriments...</span>
     </div>
 
     <!-- Suggestions list -->
-    <div v-if="suggestions.length > 0" class="border-t border-gray-100 divide-y divide-gray-50">
+    <div v-if="suggestResult.length > 0" class="border-t border-gray-100 divide-y divide-gray-50">
       <div
-        v-for="(activity, idx) in suggestions"
+        v-for="(activity, idx) in suggestResult"
         :key="idx"
         class="p-4"
       >
@@ -126,19 +117,15 @@ function addActivity(activity) {
         <div class="flex flex-wrap gap-2 mb-3">
           <span v-if="activity.time"
                 class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            {{ activity.time }}
+            🕐 {{ activity.time }}
           </span>
           <span v-if="activity.duration"
                 class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
-            <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
-            </svg>
-            {{ activity.duration }}
+            ⏱ {{ activity.duration }}
+          </span>
+          <span v-if="activity.location"
+                class="inline-flex items-center gap-1 text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+            📍 {{ activity.location }}
           </span>
         </div>
 
@@ -151,11 +138,6 @@ function addActivity(activity) {
           + Afegir a l'itinerari
         </button>
       </div>
-    </div>
-
-    <!-- Empty after suggest (no results) -->
-    <div v-else-if="!loading && !error && suggestions.length === 0 && false" class="px-4 pb-4 text-center text-sm text-gray-500">
-      Prova una altra categoria.
     </div>
 
   </div>

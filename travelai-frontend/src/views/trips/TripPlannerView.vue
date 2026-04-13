@@ -8,6 +8,7 @@ import { useAuthStore } from '@/stores/auth'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ItineraryDay from '@/components/trip/ItineraryDay.vue'
 import AiChatBox from '@/components/ai/AiChatBox.vue'
+import ActivitySuggestions from '@/components/ai/ActivitySuggestions.vue'
 
 const route  = useRoute()
 const router = useRouter()
@@ -90,10 +91,16 @@ async function handleEditDone() {
 async function handleSaveActivity({ dayNumber, index, activity }) {
   const day = itineraryStore.currentItinerary?.days?.find(d => d.dayNumber === dayNumber)
   if (!day) return
-  // update activity in local state
   const activities = [...day.activities]
   activities[index] = activity
   const updatedDay = { ...day, activities }
+  await itineraryStore.updateDay(route.params.id, dayNumber, updatedDay)
+}
+
+async function handleAddActivity({ dayNumber, ...activity }) {
+  const day = itineraryStore.currentItinerary?.days?.find(d => d.dayNumber === dayNumber)
+  if (!day) return
+  const updatedDay = { ...day, activities: [...day.activities, activity] }
   await itineraryStore.updateDay(route.params.id, dayNumber, updatedDay)
 }
 
@@ -443,12 +450,18 @@ function formatDate(dateStr) {
         </div>
 
         <!-- Contingut panel -->
-        <div class="flex-1 overflow-y-auto p-4">
-          <!-- Chat box — gestiona el seu propi estat de streaming i errors -->
+        <div class="flex-1 overflow-y-auto p-4 space-y-4">
+          <!-- Chat box — refina el dia amb prompt lliure -->
           <AiChatBox
             :trip-id="route.params.id"
             :day-number="refineDayNumber"
             @days-updated="handleRefineDone"
+          />
+          <!-- Suggeriments d'activitats per categoria -->
+          <ActivitySuggestions
+            :trip-id="route.params.id"
+            :day-number="refineDayNumber"
+            @add-activity="handleAddActivity"
           />
         </div>
       </div>

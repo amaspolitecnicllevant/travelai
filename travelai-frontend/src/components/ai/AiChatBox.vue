@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, nextTick } from 'vue'
 import { useAiStream } from '@/composables/useAiStream'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
@@ -12,9 +12,11 @@ const props = defineProps({
 })
 const emit = defineEmits(['submit', 'days-updated'])
 
-const { streaming, progress, rawBuffer, days, error, generate, refineDay, refineAll, editItinerary, cancel } = useAiStream()
+const { streaming, progress, rawBuffer, days, error, refineDay, refineAll, editItinerary, cancel } = useAiStream()
 
-const prompt = ref('')
+const prompt     = ref('')
+const history    = ref([])  // [{ role: 'user'|'ai', content: string, daysCount?: number }]
+const historyEl  = ref(null)
 
 const isDisabled = computed(() => props.disabled || streaming.value)
 
@@ -25,17 +27,14 @@ const effectivePlaceholder = computed(() => {
   return "Descriu com vols modificar l'itinerari..."
 })
 
-const modeLabel = computed(() => {
-  if (props.dayNumber)       return `Refinant dia ${props.dayNumber}`
-  if (props.useEditorAgent)  return 'Editant itinerari complet'
-  return 'Refinant itinerari complet'
-})
-
 async function send() {
   const text = prompt.value.trim()
   if (!text || isDisabled.value) return
 
+  history.value.push({ role: 'user', content: text })
   prompt.value = ''
+  await nextTick()
+  scrollHistory()
 
   let result
   if (props.dayNumber) {
@@ -46,8 +45,26 @@ async function send() {
     result = await refineAll(props.tripId, text)
   }
 
-  // Notificar el pare que ha acabat (amb o sense dies parseats)
+  const daysCount = result?.length || 0
+  if (error.value) {
+    history.value.push({ role: 'ai', content: error.value, isError: true })
+  } else {
+    history.value.push({
+      role: 'ai',
+      content: daysCount > 0
+        ? `Itinerari actualitzat (${daysCount} ${daysCount === 1 ? 'dia' : 'dies'} modificats)`
+        : 'Modificació aplicada',
+      daysCount,
+    })
+  }
+  await nextTick()
+  scrollHistory()
+
   emit('days-updated', result || [])
+}
+
+function scrollHistory() {
+  if (historyEl.value) historyEl.value.scrollTop = historyEl.value.scrollHeight
 }
 
 function onKeydown(e) {
@@ -67,35 +84,60 @@ function onKeydown(e) {
       <LoadingSpinner v-if="streaming" size="sm" class="ml-1" />
     </div>
 
-    <!-- Àrea de resposta streaming -->
-    <div v-if="streaming || rawBuffer || error" class="px-4 py-3 border-b border-gray-100">
-      <!-- Progrés -->
-      <div v-if="streaming" class="flex items-center gap-2 mb-2">
+    <!-- Historial de conversa -->
+    <div
+      v-if="history.length > 0 || streaming"
+      ref="historyEl"
+      class="max-h-56 overflow-y-auto px-4 py-3 space-y-2 border-b border-gray-100"
+    >
+      <div
+        v-for="(msg, i) in history"
+        :key="i"
+        class="flex gap-2"
+        :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+      >
+        <div
+          class="max-w-[85%] px-3 py-2 rounded-xl text-sm leading-snug"
+          :class="msg.role === 'user'
+            ? 'bg-indigo-600 text-white rounded-br-none'
+            : msg.isError
+              ? 'bg-red-50 text-red-700 border border-red-200 rounded-bl-none'
+              : 'bg-gray-100 text-gray-800 rounded-bl-none'"
+        >
+          <span v-if="msg.daysCount" class="flex items-center gap-1">
+            <svg class="h-3.5 w-3.5 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            {{ msg.content }}
+          </span>
+          <span v-else>{{ msg.content }}</span>
+        </div>
+      </div>
+
+      <!-- Streaming indicator -->
+      <div v-if="streaming" class="flex justify-start">
+        <div class="bg-gray-100 rounded-xl rounded-bl-none px-3 py-2 flex items-center gap-2">
+          <span class="flex gap-0.5">
+            <span class="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:0ms"></span>
+            <span class="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:150ms"></span>
+            <span class="h-1.5 w-1.5 bg-gray-400 rounded-full animate-bounce" style="animation-delay:300ms"></span>
+          </span>
+          <span class="text-xs text-gray-400">{{ progress }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Streaming raw buffer (visible durant la generació) -->
+    <div v-if="streaming && rawBuffer" class="px-4 py-3 border-b border-gray-100">
+      <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-600 font-mono whitespace-pre-wrap
+                  max-h-32 overflow-y-auto leading-relaxed">
+        {{ rawBuffer }}<span class="animate-pulse text-indigo-500">▌</span>
+      </div>
+      <div class="flex items-center gap-2 mt-2">
         <div class="flex-1 bg-gray-100 rounded-full h-1 overflow-hidden">
           <div class="bg-indigo-500 h-1 rounded-full animate-pulse w-2/3"></div>
         </div>
-        <span class="text-xs text-gray-400 whitespace-nowrap">{{ progress }}</span>
-      </div>
-
-      <!-- Text en temps real -->
-      <div v-if="rawBuffer"
-           class="bg-gray-50 rounded-lg p-3 text-sm text-gray-700 font-mono whitespace-pre-wrap
-                  max-h-48 overflow-y-auto leading-relaxed">
-        {{ rawBuffer }}<span v-if="streaming" class="animate-pulse text-indigo-500">▌</span>
-      </div>
-
-      <!-- Dies completats -->
-      <div v-if="days.length > 0 && !streaming"
-           class="mt-2 flex items-center gap-2 text-sm text-emerald-600">
-        <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-        </svg>
-        <span>{{ days.length }} {{ days.length === 1 ? 'dia' : 'dies' }} actualitzats</span>
-      </div>
-
-      <!-- Error -->
-      <div v-if="error" class="mt-2 text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">
-        {{ error }}
+        <button class="text-xs text-red-500 hover:text-red-700" @click="cancel">Cancel·lar</button>
       </div>
     </div>
 
@@ -112,27 +154,18 @@ function onKeydown(e) {
                  disabled:bg-gray-50 disabled:text-gray-400 transition-colors"
           @keydown="onKeydown"
         />
-        <div class="flex flex-col gap-2">
-          <button
-            :disabled="isDisabled || !prompt.trim()"
-            class="self-start bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium
-                   hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
-                   transition-colors whitespace-nowrap"
-            @click="send"
-          >
-            Enviar
-          </button>
-          <button
-            v-if="streaming"
-            class="text-xs text-red-500 hover:text-red-700 text-center transition-colors"
-            @click="cancel"
-          >
-            Cancel·lar
-          </button>
-        </div>
+        <button
+          :disabled="isDisabled || !prompt.trim()"
+          class="self-start bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium
+                 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed
+                 transition-colors whitespace-nowrap"
+          @click="send"
+        >
+          Enviar
+        </button>
       </div>
       <p class="text-xs text-gray-400 mt-2">
-        Prem <kbd class="bg-gray-100 px-1 rounded text-xs">Enter</kbd> per enviar ·
+        <kbd class="bg-gray-100 px-1 rounded text-xs">Enter</kbd> per enviar ·
         <kbd class="bg-gray-100 px-1 rounded text-xs">Shift+Enter</kbd> per nova línia
       </p>
     </div>
