@@ -11,10 +11,11 @@ export function useAiStream() {
   const base  = import.meta.env.VITE_API_BASE_URL || '/api/v1'
   const token = () => localStorage.getItem('accessToken')
 
-  const generate  = (id)              => _stream(`${base}/ai/trips/${id}/generate`, 'POST')
-  const refineDay = (id, day, prompt) => _stream(`${base}/ai/trips/${id}/days/${day}/refine`, 'POST', { prompt })
-  const refineAll = (id, prompt)      => _stream(`${base}/ai/trips/${id}/refine-all`, 'POST', { prompt })
-  const cancel    = ()                => { controller.value?.abort(); streaming.value = false }
+  const generate      = (id)              => _stream(`${base}/ai/trips/${id}/generate`, 'POST')
+  const refineDay     = (id, day, prompt) => _stream(`${base}/ai/trips/${id}/days/${day}/refine`, 'POST', { prompt })
+  const refineAll     = (id, prompt)      => _stream(`${base}/ai/trips/${id}/refine-all`, 'POST', { prompt })
+  const editItinerary = (id, prompt)      => _stream(`${base}/ai/trips/${id}/edit`, 'POST', { prompt })
+  const cancel        = ()                => { controller.value?.abort(); streaming.value = false }
 
   // ── Budget estimate (independent state) ────────────────────────────────────
   const budgetStreaming = ref(false)
@@ -129,7 +130,7 @@ export function useAiStream() {
 
   return { streaming: readonly(streaming), progress: readonly(progress),
            rawBuffer: readonly(rawBuffer), days: readonly(days), error: readonly(error),
-           generate, refineDay, refineAll, cancel,
+           generate, refineDay, refineAll, editItinerary, cancel,
            budgetStreaming: readonly(budgetStreaming), budgetRaw: readonly(budgetRaw),
            budgetError: readonly(budgetError), budgetResult: readonly(budgetResult),
            estimateBudget }

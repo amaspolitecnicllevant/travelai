@@ -28,10 +28,13 @@ const tripError   = ref(null)
 // Panel de pressupost
 const showBudgetModal = ref(false)
 
-// Panel de refinament
+// Panel de refinament per dia
 const refinePanel     = ref(false)
 const refineDayNumber = ref(null)
 const refinePrompt    = ref('')
+
+// Panel d'edició global (EditorAgent)
+const editPanel = ref(false)
 
 // Mostrar dies des de l'stream o des del store
 const displayDays = computed(() => {
@@ -76,6 +79,11 @@ function closeRefinePanel() {
 // Quan acaba, emet 'days-updated' i recarreguem de BD.
 async function handleRefineDone() {
   closeRefinePanel()
+  await itineraryStore.fetchItinerary(route.params.id)
+}
+
+async function handleEditDone() {
+  editPanel.value = false
   await itineraryStore.fetchItinerary(route.params.id)
 }
 
@@ -181,6 +189,16 @@ function formatDate(dateStr) {
             >
               <LoadingSpinner v-if="budgetStreaming" size="sm" />
               <span>{{ budgetStreaming ? 'Estimant...' : '💰 Estimar pressupost' }}</span>
+            </button>
+
+            <!-- Botó editar itinerari globalment -->
+            <button
+              v-if="hasItinerary && !streaming"
+              class="w-full mt-2 border border-purple-300 text-purple-600 font-medium py-2.5 px-4 rounded-xl
+                     hover:bg-purple-50 transition-colors flex items-center justify-center gap-2 text-sm"
+              @click="editPanel = true"
+            >
+              ✏️ Editar itinerari amb IA
             </button>
 
             <!-- Barra de progrés / estat -->
@@ -359,6 +377,47 @@ function formatDate(dateStr) {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- Panel lateral d'edició global (EditorAgent) -->
+    <Transition name="slide-right">
+      <div
+        v-if="editPanel"
+        class="fixed inset-y-0 right-0 w-96 bg-white shadow-2xl border-l border-gray-200 z-50
+               flex flex-col"
+      >
+        <div class="flex items-center justify-between p-4 border-b border-gray-200">
+          <div>
+            <h3 class="font-semibold text-gray-900">✏️ Editar itinerari</h3>
+            <p class="text-xs text-gray-500">Diga-li a la IA com modificar tot l'itinerari</p>
+          </div>
+          <button
+            class="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            @click="editPanel = false"
+          >
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4">
+          <p class="text-xs text-gray-500 mb-3 leading-relaxed">
+            Pots demanar canvis globals: afegir més cultura, fer-ho més econòmic, canviar el ritme, etc.
+          </p>
+          <AiChatBox
+            :trip-id="route.params.id"
+            :use-editor-agent="true"
+            @days-updated="handleEditDone"
+          />
+        </div>
+      </div>
+    </Transition>
+    <Transition name="fade">
+      <div
+        v-if="editPanel"
+        class="fixed inset-0 bg-black/30 z-40"
+        @click="editPanel = false"
+      />
+    </Transition>
 
     <!-- Panel lateral de refinament (overlay dret) -->
     <Transition name="slide-right">

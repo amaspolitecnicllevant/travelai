@@ -4,27 +4,30 @@ import { useAiStream } from '@/composables/useAiStream'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 
 const props = defineProps({
-  tripId:      { type: [String, Number], required: true },
-  dayNumber:   { type: Number, default: null },
-  disabled:    { type: Boolean, default: false },
-  placeholder: { type: String, default: null },
+  tripId:          { type: [String, Number], required: true },
+  dayNumber:       { type: Number, default: null },
+  useEditorAgent:  { type: Boolean, default: false },
+  disabled:        { type: Boolean, default: false },
+  placeholder:     { type: String, default: null },
 })
 const emit = defineEmits(['submit', 'days-updated'])
 
-const { streaming, progress, rawBuffer, days, error, generate, refineDay, refineAll, cancel } = useAiStream()
+const { streaming, progress, rawBuffer, days, error, generate, refineDay, refineAll, editItinerary, cancel } = useAiStream()
 
 const prompt = ref('')
 
 const isDisabled = computed(() => props.disabled || streaming.value)
 
 const effectivePlaceholder = computed(() => {
-  if (props.placeholder) return props.placeholder
-  if (props.dayNumber)   return `Descriu com vols modificar el dia ${props.dayNumber}...`
+  if (props.placeholder)    return props.placeholder
+  if (props.dayNumber)      return `Descriu com vols modificar el dia ${props.dayNumber}...`
+  if (props.useEditorAgent) return "Exemple: «Fes el dia 2 més relaxat», «Afegeix més gastronomia local»..."
   return "Descriu com vols modificar l'itinerari..."
 })
 
 const modeLabel = computed(() => {
-  if (props.dayNumber) return `Refinant dia ${props.dayNumber}`
+  if (props.dayNumber)       return `Refinant dia ${props.dayNumber}`
+  if (props.useEditorAgent)  return 'Editant itinerari complet'
   return 'Refinant itinerari complet'
 })
 
@@ -37,6 +40,8 @@ async function send() {
   let result
   if (props.dayNumber) {
     result = await refineDay(props.tripId, props.dayNumber, text)
+  } else if (props.useEditorAgent) {
+    result = await editItinerary(props.tripId, text)
   } else {
     result = await refineAll(props.tripId, text)
   }
