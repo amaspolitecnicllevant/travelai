@@ -5,6 +5,7 @@ import com.travelai.domain.ai.AiException;
 import com.travelai.domain.ai.DayPlan;
 import com.travelai.domain.ai.ItineraryParser;
 import com.travelai.domain.ai.OllamaService;
+import com.travelai.domain.ai.DestinationContextService;
 import com.travelai.domain.ai.WeatherService;
 import com.travelai.domain.trip.Itinerary;
 import com.travelai.domain.trip.ItineraryRepository;
@@ -31,6 +32,7 @@ public class ItineraryAgent {
     private final ItineraryRepository itineraryRepository;
     private final ObjectMapper objectMapper;
     private final WeatherService weatherService;
+    private final DestinationContextService destinationContextService;
 
     private static final String SYSTEM_PROMPT = """
             You are an expert travel planner. IMPORTANT: Always respond in the same language the user uses.
@@ -58,11 +60,14 @@ public class ItineraryAgent {
     public Flux<String> generate(Trip trip) {
         int days = computeDays(trip);
         String systemPrompt = SYSTEM_PROMPT.formatted(trip.getDestination(), days);
-        String weatherContext = weatherService.getWeatherContext(trip.getDestination(), trip.getStartDate(), days);
-        String userPrompt = buildUserPrompt(trip, weatherContext);
+        String weatherContext  = weatherService.getWeatherContext(trip.getDestination(), trip.getStartDate(), days);
+        String destContext     = destinationContextService.getDestinationContext(trip.getDestination());
+        String userPrompt      = buildUserPrompt(trip, weatherContext, destContext);
 
-        log.info("ItineraryAgent: generant itinerari per a '{}' ({} dies, clima: {})",
-                trip.getDestination(), days, weatherContext.isBlank() ? "no disponible" : "disponible");
+        log.info("ItineraryAgent: generant itinerari per a '{}' ({} dies, clima: {}, context dest: {})",
+                trip.getDestination(), days,
+                weatherContext.isBlank() ? "no" : "sí",
+                destContext.isBlank() ? "no" : "sí");
 
         StringBuilder fullResponse = new StringBuilder();
 
@@ -88,9 +93,12 @@ public class ItineraryAgent {
         return 3; // valor per defecte si no hi ha dates
     }
 
-    private String buildUserPrompt(Trip trip, String weatherContext) {
+    private String buildUserPrompt(Trip trip, String weatherContext, String destContext) {
         int days = computeDays(trip);
         StringBuilder sb = new StringBuilder();
+        if (!destContext.isBlank()) {
+            sb.append(destContext).append("\n");
+        }
         sb.append("Destino: ").append(trip.getDestination()).append("\n");
         sb.append("Duración: ").append(days).append(" días\n");
         if (trip.getDescription() != null && !trip.getDescription().isBlank()) {
